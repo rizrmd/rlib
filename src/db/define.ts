@@ -1,5 +1,5 @@
 import { SQL } from "bun";
-import { createQuery } from "./postgres/query";
+import { createQuery, createFindFirst } from "./postgres/query";
 import type { ModelDefinition } from "./types-gen";
 import type { ModelOperations } from "./types-lib";
 
@@ -16,9 +16,10 @@ export const defineDB = async <T extends { [K in string]: ModelDefinition<K> }>(
   for (const modelName of Object.keys(models) as Array<keyof T>) {
     const modelDef = models[modelName];
 
-    // Set up model operations
+    // Set up model operations using sql directly instead of sql.unsafe
     db[modelName] = {
-      findMany: createQuery(modelName, modelDef, models, sql.unsafe),
+      findMany: createQuery(modelName, modelDef, models, sql),
+      findFirst: createFindFirst(modelName, modelDef, models, sql),
     };
   }
 
