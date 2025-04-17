@@ -84,8 +84,8 @@ export type OrderByClause<M, N extends keyof M> = {
   [F in ModelField<M, N>]?: OrderDirection;
 };
 
-export type ModelQueryList<M, N extends keyof M> = (opt: {
-  select: SelectFields<M, N>[];
+export type ModelQueryList<M, N extends keyof M> = (opt?: {
+  select?: SelectFields<M, N>[];
   where?: WhereFields<M, N>;
   orderBy?: OrderByClause<M, N>;
   limit?: number;
