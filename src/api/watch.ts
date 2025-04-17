@@ -22,7 +22,9 @@ export const watchAPI = (config: { input_dir: string; out_file: string }) => {
 
     // Generate imports and API object
     const apiImports: string[] = [];
-    const apiEndpoints: { [key: string]: string } = {};
+    // Store endpoints grouped by domain (if applicable)
+    const apiEndpoints: { [url: string]: string } = {}; // For non-domain endpoints
+    const apiDomainEndpoints = new Map<string, { [url: string]: string }>(); // For domain-grouped endpoints
 
     for (const file of files) {
       try {
@@ -63,9 +65,11 @@ export default defineAPI({
 
         const url = urlMatch[1];
 
-        // Create an import name based on the directory structure
-        // For example, "backend/api/auth.esensi/login" -> "auth_esensi_login"
+        // Check if the file path contains folders with dots (domain identifiers)
         const pathParts = relativePath.split("/");
+        const domainIndex = pathParts.findIndex((part) => part.includes("."));
+
+        // Create an import name based on the directory structure
         const importName = pathParts
           .slice(Math.max(0, pathParts.length - 3)) // Get the last up to 3 parts
           .join("_")
@@ -79,16 +83,57 @@ export default defineAPI({
         apiImports.push(
           `import { default as ${importName} } from "${importPath}";`
         );
-        if (url) apiEndpoints[url] = importName;
+
+        // If a domain is found, group the endpoint under that domain
+        if (domainIndex !== -1 && url) {
+          // Make sure domain is definitely a string
+          const domain = pathParts[domainIndex];
+          if (domain) {
+            // Ensure the domain object exists
+            if (!apiDomainEndpoints.has(domain)) {
+              apiDomainEndpoints.set(domain, {});
+            }
+
+            // Now we can safely assign to the domain's endpoints
+            const domainEndpoints = apiDomainEndpoints.get(domain);
+            if (domainEndpoints) {
+              domainEndpoints[url] = importName;
+            }
+          }
+        } else if (url) {
+          // Otherwise add to the regular endpoints
+          apiEndpoints[url] = importName;
+        }
       } catch (error) {
         console.error(`Error processing file ${file}:`, error);
       }
     }
 
-    // Generate the output file content
-    const apiObjectEntries = Object.entries(apiEndpoints)
+    // Generate the output file content with domain grouping
+    let apiObjectEntries = "";
+
+    // Add non-domain endpoints
+    const regularEndpoints = Object.entries(apiEndpoints)
       .map(([url, importName]) => `  "${url}": ${importName}`)
       .join(",\n");
+
+    if (regularEndpoints) {
+      apiObjectEntries += regularEndpoints;
+    }
+
+    // Add domain-grouped endpoints
+    apiDomainEndpoints.forEach((endpoints, domain) => {
+      // Add a comma if there are regular endpoints
+      if (apiObjectEntries && Object.keys(endpoints).length > 0) {
+        apiObjectEntries += ",\n";
+      }
+
+      const domainEndpointsStr = Object.entries(endpoints)
+        .map(([url, importName]) => `    "${url}": ${importName}`)
+        .join(",\n");
+
+      apiObjectEntries += `  "${domain}": {\n${domainEndpointsStr}\n  }`;
+    });
 
     const content = `// Auto-generated API exports
 ${apiImports.join("\n")}
@@ -106,6 +151,7 @@ ${apiObjectEntries}
 
     // Write the output file
     fs.writeFileSync(paths.out, content);
+    console.log(`API exports generated at ${paths.out}`);
   };
 
   // Run the build once at start
