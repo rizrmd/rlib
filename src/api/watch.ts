@@ -33,7 +33,28 @@ export const watchAPI = (config: { input_dir: string; out_file: string }) => {
         const fullPath = path.join(paths.in, file);
 
         // Read the file content to extract the URL
-        const fileContent = fs.readFileSync(fullPath, "utf-8");
+        let fileContent = fs.readFileSync(fullPath, "utf-8");
+
+        // If the file is empty or only contains whitespace, populate it with the template
+        if (!fileContent.trim()) {
+          // Generate a URL path based on the file path
+          const urlPath = relativePath.replace(/\\/g, "/");
+          const apiTemplate = `import { defineAPI } from "rlib";
+
+export default defineAPI({
+  url: "/api/hello/world",
+  handler: async () => {
+    console.log("hello-world");
+    return {};
+  },
+});
+`;
+          // Write the template to the file
+          fs.writeFileSync(fullPath, apiTemplate);
+          console.log(`Populated empty file with template: ${file}`);
+          // Update the file content for further processing
+          fileContent = apiTemplate;
+        }
 
         // Extract the URL from defineAPI({ url: "..." })
         const urlMatch = fileContent.match(/url:\s*["']([^"']+)["']/);
@@ -93,11 +114,12 @@ ${apiObjectEntries}
   // Run the build once at start
   build();
 
+  const timeout = { build: null as any };
   // Watch for file changes and rebuild
   watch(paths.in, { recursive: true }, (eventType, filename) => {
     if (filename && filename.endsWith(".ts") && !filename.endsWith(".d.ts")) {
-      console.log(`File changed: ${filename}`);
-      build();
+      clearTimeout(timeout.build);
+      timeout.build = setTimeout(build, 300);
     }
   });
 };
