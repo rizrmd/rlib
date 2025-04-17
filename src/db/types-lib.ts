@@ -31,7 +31,7 @@ export type RelationTargetInfo<
   M,
   N extends keyof M,
   R extends RelationField<M, N>
-> = ModelRelations<M, N>[R] extends { to: { table: infer T } }
+> = ModelRelations<M, N>[R] extends { to: { model: infer T } }
   ? T extends keyof M
     ? T
     : never

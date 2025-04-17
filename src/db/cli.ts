@@ -35,7 +35,31 @@ async function writeModelFile(basePath: string, tableName: string, modelContent:
 /**
  * Import statement to be added to the model files
  */
-const modelImportStatement = `import type { ModelDefinition } from '../../../db/types-lib';\n\n`;
+const modelImportStatement = `import type { ModelDefinition } from 'rlib';\n\n`;
+
+/**
+ * Generate index.ts file that exports all models
+ * @param outputPath Base path for output
+ * @param tableNames Array of table names
+ */
+async function generateIndexFile(outputPath: string, tableNames: string[]) {
+  const indexPath = join(outputPath, 'index.ts');
+  
+  const exportStatements = tableNames.map(
+    tableName => `export { default as ${tableName} } from './${tableName}/model';`
+  ).join('\n');
+  
+  const indexContent = `/**
+ * Auto-generated model exports
+ * Generated on ${new Date().toISOString()}
+ */
+
+${exportStatements}
+`;
+
+  await writeFile(indexPath, indexContent);
+  console.log(`Generated index.ts with exports for ${tableNames.length} models`);
+}
 
 /**
  * Run the database inspection and generate model files
@@ -49,12 +73,16 @@ async function runInspect(outputPath: string) {
       console.log(`Processing table ${index+1}/${total}: ${tableName}`);
     });
     
-    console.log(`\nFound ${Object.keys(results).length} tables. Generating model files...`);
+    const tableNames = Object.keys(results);
+    console.log(`\nFound ${tableNames.length} tables. Generating model files...`);
     
     for (const [tableName, modelDef] of Object.entries(results)) {
       await writeModelFile(outputPath, tableName, modelImportStatement + modelDef);
       console.log(`Generated model file for ${tableName}`);
     }
+    
+    // Generate the index.ts file
+    await generateIndexFile(outputPath, tableNames);
     
     console.log(`\nDone! Model files written to ${outputPath}`);
   } catch (error) {

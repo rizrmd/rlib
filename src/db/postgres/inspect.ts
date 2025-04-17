@@ -4,6 +4,7 @@
  */
 
 import { sql } from "bun";
+import type { RelationDefinition } from "../types-gen";
 
 export interface TableColumn {
   table_schema: string;
@@ -23,6 +24,7 @@ export interface TableRelationship {
   target_schema: string;
   target_table: string;
   target_column: string;
+  relationship_type?: "has_many" | "belongs_to" | "has_one";
 }
 
 export interface DatabaseStructure {
@@ -39,10 +41,7 @@ export interface ColumnDefinition {
 }
 
 export interface ModelRelations {
-  [relationName: string]: {
-    references: string;
-    column: string;
-  };
+  [relationName: string]: RelationDefinition;
 }
 
 export interface ModelDefinition {
@@ -242,6 +241,28 @@ function mapDataType(pgType: string): string {
 }
 
 /**
+ * Simplify relation name by applying naming conventions
+ * @param modelName The model name for the relation
+ * @param relationType The type of relationship (has_many, belongs_to, etc.)
+ * @returns A simplified relation name
+ */
+function simplifyRelationName(modelName: string, relationType: string): string {
+  // Remove single character prefix if it exists (e.g., t_sales_download -> sales_download)
+  let simplifiedName = modelName;
+  if (modelName.length > 2 && modelName[1] === '_') {
+    simplifiedName = modelName.substring(2);
+  }
+  
+  // If it's a has_many relationship, pluralize by adding 's'
+  if (relationType === "has_many") {
+    return simplifiedName + 's';
+  }
+  
+  // For other relationship types, just use the simplified name as is
+  return simplifiedName;
+}
+
+/**
  * Generate model definition for a specific table
  * @param tableName Name of the table
  * @param columns Columns of the table
@@ -255,9 +276,15 @@ export async function generateModelDefinition(
   const columns = await getTableColumns(tableName);
   const allRelationships = await getTableRelationships();
 
-  // Filter relationships that are relevant to this table (as source)
-  const tableRelationships = allRelationships.filter(
+  // Filter relationships that are relevant to this table
+  // 1. Source relationships (belongs_to)
+  const sourceRelationships = allRelationships.filter(
     (rel) => rel.source_table.toLowerCase() === tableName.toLowerCase()
+  );
+  
+  // 2. Target relationships (has_many/has_one)
+  const targetRelationships = allRelationships.filter(
+    (rel) => rel.target_table.toLowerCase() === tableName.toLowerCase()
   );
 
   // Build columns object
@@ -270,11 +297,36 @@ export async function generateModelDefinition(
 
   // Build relations object
   const relationsDef: ModelRelations = {};
-  tableRelationships.forEach((rel) => {
-    const relationName = `${rel.target_table}_${rel.target_column}`;
+  
+  // Add source relationships (belongs_to)
+  sourceRelationships.forEach((rel) => {
+    // Use simplified relation name instead of the raw column name
+    const relationName = simplifyRelationName(rel.target_table, "belongs_to");
     relationsDef[relationName] = {
-      references: rel.target_table,
-      column: rel.source_column,
+      type: "belongs_to",
+      from: rel.source_column,
+      to: {
+        model: rel.target_table,
+        column: rel.target_column,
+      },
+    };
+  });
+  
+  // Add target relationships (has_many/has_one)
+  targetRelationships.forEach((rel) => {
+    // Check if this might be a has_one relationship based on uniqueness constraints
+    // For now default to has_many, but this could be expanded to detect unique constraints
+    const type = "has_many";
+    
+    // Use simplified relation name
+    const relationName = simplifyRelationName(rel.source_table, type);
+    relationsDef[relationName] = {
+      type,
+      from: rel.target_column,
+      to: {
+        model: rel.source_table,
+        column: rel.source_column,
+      },
     };
   });
 
@@ -308,15 +360,19 @@ ${Object.entries(modelDef.columns)
         Object.entries(modelDef.relations)
           .map(
             ([relName, relDef]) => `    ${relName}: {
-      references: "${relDef.references}",
-      column: "${relDef.column}",
+      type: "${relDef.type}",
+      from: "${relDef.from}",
+      to: {
+        model: "${relDef.to.model}",
+        column: "${relDef.to.column}",
+      },
     }`
           )
           .join(",\n") +
         "\n  "
       : ""
   }},
-} as const satisfies ModelDefinition;`;
+} as const satisfies ModelDefinition<"${modelDef.table}">;`;
 }
 
 /**
