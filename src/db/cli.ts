@@ -7,6 +7,7 @@ import { existsSync } from "fs";
 import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
 import { inspectAllWithProgress } from "./postgres/inspect";
+import { SQL } from "bun";
 
 /**
  * Ensure directory exists, creating it if needed
@@ -78,9 +79,13 @@ async function runInspect(outputPath: string) {
   console.log("Inspecting database tables...");
 
   try {
-    const results = await inspectAllWithProgress((tableName, index, total) => {
-      console.log(`Processing table ${index + 1}/${total}: ${tableName}`);
-    });
+    const sql = new SQL({ url: process.env.DATABASE_URL });
+    const results = await inspectAllWithProgress(
+      sql,
+      (tableName, index, total) => {
+        console.log(`Processing table ${index + 1}/${total}: ${tableName}`);
+      }
+    );
 
     const tableNames = Object.keys(results);
     console.log(

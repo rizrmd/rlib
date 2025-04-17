@@ -4,7 +4,6 @@
  */
 
 import type { RelationDefinition } from "../types-gen";
-import { sql } from "./conn";
 
 export interface TableColumn {
   table_schema: string;
@@ -53,7 +52,7 @@ export interface ModelDefinition {
 /**
  * Get all tables in a PostgreSQL database
  */
-export async function getTables(): Promise<string[]> {
+export async function getTables(sql: Bun.SQL): Promise<string[]> {
   const result = await sql`
     SELECT table_name 
     FROM information_schema.tables 
@@ -68,6 +67,7 @@ export async function getTables(): Promise<string[]> {
  * Get all columns for a specific table in a PostgreSQL database
  */
 export async function getTableColumns(
+  sql: Bun.SQL,
   tableName: string
 ): Promise<TableColumn[]> {
   const result = await sql`
@@ -108,7 +108,9 @@ export async function getTableColumns(
 /**
  * Get all columns for all tables in a PostgreSQL database
  */
-export async function getAllColumns(): Promise<Record<string, TableColumn[]>> {
+export async function getAllColumns(
+  sql: Bun.SQL
+): Promise<Record<string, TableColumn[]>> {
   const result = await sql`
     SELECT 
       c.table_schema,
@@ -158,7 +160,9 @@ export async function getAllColumns(): Promise<Record<string, TableColumn[]>> {
 /**
  * Get all relationships between tables in a PostgreSQL database
  */
-export async function getTableRelationships(): Promise<TableRelationship[]> {
+export async function getTableRelationships(
+  sql: Bun.SQL
+): Promise<TableRelationship[]> {
   const result = await sql`
     SELECT
       con.conname AS constraint_name,
@@ -194,10 +198,12 @@ export async function getTableRelationships(): Promise<TableRelationship[]> {
 /**
  * Get the full database structure including tables, columns and relationships
  */
-export async function getDatabaseStructure(): Promise<DatabaseStructure> {
-  const tables = await getTables();
-  const columns = await getAllColumns();
-  const relationships = await getTableRelationships();
+export async function getDatabaseStructure(
+  sql: Bun.SQL
+): Promise<DatabaseStructure> {
+  const tables = await getTables(sql);
+  const columns = await getAllColumns(sql);
+  const relationships = await getTableRelationships(sql);
 
   return {
     tables,
@@ -249,15 +255,15 @@ function mapDataType(pgType: string): string {
 function simplifyRelationName(modelName: string, relationType: string): string {
   // Remove single character prefix if it exists (e.g., t_sales_download -> sales_download)
   let simplifiedName = modelName;
-  if (modelName.length > 2 && modelName[1] === '_') {
+  if (modelName.length > 2 && modelName[1] === "_") {
     simplifiedName = modelName.substring(2);
   }
-  
+
   // If it's a has_many relationship, pluralize by adding 's'
   if (relationType === "has_many") {
-    return simplifiedName + 's';
+    return simplifiedName + "s";
   }
-  
+
   // For other relationship types, just use the simplified name as is
   return simplifiedName;
 }
@@ -270,18 +276,19 @@ function simplifyRelationName(modelName: string, relationType: string): string {
  * @returns Model definition object
  */
 export async function generateModelDefinition(
+  sql: Bun.SQL,
   tableName: string
 ): Promise<ModelDefinition> {
   // Get columns and relationships for the table
-  const columns = await getTableColumns(tableName);
-  const allRelationships = await getTableRelationships();
+  const columns = await getTableColumns(sql, tableName);
+  const allRelationships = await getTableRelationships(sql);
 
   // Filter relationships that are relevant to this table
   // 1. Source relationships (belongs_to)
   const sourceRelationships = allRelationships.filter(
     (rel) => rel.source_table.toLowerCase() === tableName.toLowerCase()
   );
-  
+
   // 2. Target relationships (has_many/has_one)
   const targetRelationships = allRelationships.filter(
     (rel) => rel.target_table.toLowerCase() === tableName.toLowerCase()
@@ -297,7 +304,7 @@ export async function generateModelDefinition(
 
   // Build relations object
   const relationsDef: ModelRelations = {};
-  
+
   // Add source relationships (belongs_to)
   sourceRelationships.forEach((rel) => {
     // Use simplified relation name instead of the raw column name
@@ -311,13 +318,13 @@ export async function generateModelDefinition(
       },
     };
   });
-  
+
   // Add target relationships (has_many/has_one)
   targetRelationships.forEach((rel) => {
     // Check if this might be a has_one relationship based on uniqueness constraints
     // For now default to has_many, but this could be expanded to detect unique constraints
     const type = "has_many";
-    
+
     // Use simplified relation name
     const relationName = simplifyRelationName(rel.source_table, type);
     relationsDef[relationName] = {
@@ -380,8 +387,11 @@ ${Object.entries(modelDef.columns)
  * @param tableName Name of the table to inspect
  * @returns Formatted model definition as a string
  */
-export async function inspectTable(tableName: string): Promise<string> {
-  const modelDef = await generateModelDefinition(tableName);
+export async function inspectTable(
+  sql: Bun.SQL,
+  tableName: string
+): Promise<string> {
+  const modelDef = await generateModelDefinition(sql, tableName);
   return formatModelDefinition(modelDef);
 }
 
@@ -389,13 +399,15 @@ export async function inspectTable(tableName: string): Promise<string> {
  * Inspect all tables in the database and generate formatted model definitions
  * @returns Record of table names to their formatted model definitions
  */
-export async function inspectAll(): Promise<Record<string, string>> {
-  const tables = await getTables();
+export async function inspectAll(
+  sql: Bun.SQL
+): Promise<Record<string, string>> {
+  const tables = await getTables(sql);
   const results: Record<string, string> = {};
 
   // Process each table to generate its model definition
   for (const tableName of tables) {
-    results[tableName] = await inspectTable(tableName);
+    results[tableName] = await inspectTable(sql, tableName);
   }
 
   return results;
@@ -407,9 +419,10 @@ export async function inspectAll(): Promise<Record<string, string>> {
  * @returns Record of table names to their formatted model definitions
  */
 export async function inspectAllWithProgress(
+  sql: Bun.SQL,
   progressCallback?: (tableName: string, index: number, total: number) => void
 ): Promise<Record<string, string>> {
-  const tables = await getTables();
+  const tables = await getTables(sql);
   const results: Record<string, string> = {};
   const total = tables.length;
 
@@ -420,7 +433,7 @@ export async function inspectAllWithProgress(
       if (progressCallback) {
         progressCallback(tableName, i, total);
       }
-      results[tableName] = await inspectTable(tableName);
+      results[tableName] = await inspectTable(sql, tableName);
     }
   }
 
