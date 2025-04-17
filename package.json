@@ -1,8 +1,12 @@
 {
   "name": "rlib",
   "version": "0.0.1",
-  "module": "index.ts",
+  "module": "src/index.ts",
   "type": "module",
+  "types": "src/index.ts",
+  "scripts": {
+    "db": "bun run ./src/db/cli.ts"
+  },
   "devDependencies": {
     "@types/bun": "latest"
   },
