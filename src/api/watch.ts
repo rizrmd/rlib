@@ -10,8 +10,6 @@ export const watchAPI = (config: { input_dir: string; out_file: string }) => {
   };
 
   const build = async () => {
-    console.log(`Building API exports from ${paths.in} to ${paths.out}`);
-
     // Get all files in input directory recursively
     const files = dir
       .list(config.input_dir)
