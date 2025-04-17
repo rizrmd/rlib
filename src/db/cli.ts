@@ -3,10 +3,10 @@
  * Database CLI tool for inspecting database structure and generating model files
  */
 
-import { mkdir, writeFile } from "fs/promises";
-import { join, dirname } from "path";
 import { existsSync } from "fs";
-import { inspectAll, inspectAllWithProgress } from "./postgres/inspect";
+import { mkdir, writeFile } from "fs/promises";
+import { join } from "path";
+import { inspectAllWithProgress } from "./postgres/inspect";
 
 /**
  * Ensure directory exists, creating it if needed

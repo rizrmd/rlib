@@ -12,5 +12,10 @@
   },
   "peerDependencies": {
     "typescript": "^5"
+  },
+  "dependencies": {
+    "@types/pg": "^8.11.13",
+    "pg": "^8.14.1",
+    "postgrejs": "^2.22.4"
   }
 }

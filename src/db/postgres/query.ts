@@ -6,7 +6,6 @@ import type {
   SelectFields,
   WhereFields,
 } from "../types-lib";
-import { sql } from "./conn";
 
 /**
  * Creates a query function that implements the ModelQueryList interface
@@ -15,38 +14,43 @@ import { sql } from "./conn";
 export function createQuery<
   M extends Record<string, ModelDefinition<string>>,
   N extends keyof M
->(
-  modelName: N,
-  modelDef: M[N],
-  models: M
-): ModelQueryList<M, N> {
+>(modelName: N, modelDef: M[N], models: M, query: any): ModelQueryList<M, N> {
   return async (options = {}) => {
     // Extract query options
-    const { select, where, orderBy, limit, skip } = options;
-    
+    const { select, where, orderBy, limit, skip, debug } = options;
+
     // Build SQL parts
     const tableName = modelDef.table;
     const selectClause = buildSelectClause(modelName, select || [], models);
-    const whereClause = where ? buildWhereClause(modelName, where, models) : null;
-    const orderByClause = orderBy ? buildOrderByClause(modelName, orderBy) : null;
-    const limitClause = typeof limit === 'number' ? `LIMIT ${limit}` : '';
-    const offsetClause = typeof skip === 'number' ? `OFFSET ${skip}` : '';
-    
-    // Build full SQL query
-    const query = `
-      SELECT ${selectClause}
-      FROM "${tableName}" AS "${String(modelName)}"
-      ${whereClause ? `WHERE ${whereClause}` : ''}
-      ${orderByClause ? `ORDER BY ${orderByClause}` : ''}
-      ${limitClause}
-      ${offsetClause}
-    `;
-    
+
+    const whereClause = where
+      ? buildWhereClause(modelName, where, models)
+      : null;
+    const orderByClause = orderBy
+      ? buildOrderByClause(modelName, orderBy)
+      : null;
+
+    const limitClause = typeof limit === "number" ? `LIMIT ${limit}` : "";
+    const offsetClause = typeof skip === "number" ? `OFFSET ${skip}` : "";
+
     // Execute query
-    const result = await sql.unsafe(query);
-    
+    const raw = `
+    SELECT ${selectClause}
+    FROM "${tableName}" AS "${String(modelName)}"
+    ${whereClause ? `WHERE ${whereClause}` : ""}
+    ${orderByClause ? `ORDER BY ${orderByClause}` : ""}
+    ${limitClause}
+    ${offsetClause}
+  `.trim();
+    const result = await query(raw);
+
     // Process results to match selected fields structure
-    return processResults(result, modelName, select || [], models);
+    const final = processResults(result, modelName, select || [], models);
+
+    if (debug) {
+      return { data: final, sql: raw };
+    }
+    return final;
   };
 }
 
@@ -74,49 +78,66 @@ function buildSelectClause<
   const tableName = String(modelName);
   const columns: string[] = [];
 
-  for (const field of selectFields) {
-    if (typeof field === "string") {
-      // Basic column selection
-      columns.push(`"${tableName}"."${field}" AS "${tableName}_${field}"`);
-    } else {
-      // Relation selection
-      for (const [relationName, relationFields] of Object.entries(field)) {
-        // Skip if relation fields are not defined
-        if (!relationFields || !relationFields.length) continue;
+  // If no fields are selected, default to selecting all columns from the model
+  if (selectFields.length === 0) {
+    const modelDef = models[modelName];
+    if (modelDef && modelDef.columns) {
+      // Add all columns from the model
+      Object.keys(modelDef.columns).forEach((column) => {
+        columns.push(`"${tableName}"."${column}" AS "${tableName}_${column}"`);
+      });
+    }
 
-        // Get relation definition in a type-safe way
-        const relationDef = getRelation(models, modelName, relationName);
-        if (!relationDef) continue;
+    // If still empty (no columns found), select at least the primary key or '*'
+    if (columns.length === 0) {
+      return `"${tableName}".*`;
+    }
+  } else {
+    // Process the specified select fields
+    for (const field of selectFields) {
+      if (typeof field === "string") {
+        // Basic column selection
+        columns.push(`"${tableName}"."${field}" AS "${tableName}_${field}"`);
+      } else {
+        // Relation selection
+        for (const [relationName, relationFields] of Object.entries(field)) {
+          // Skip if relation fields are not defined
+          if (!relationFields || !relationFields.length) continue;
 
-        const targetModelName = String(relationDef.to.model);
-        const targetModelKey = relationDef.to.model as keyof M;
-        const targetModelDef = models[targetModelKey];
-        if (!targetModelDef) continue;
+          // Get relation definition in a type-safe way
+          const relationDef = getRelation(models, modelName, relationName);
+          if (!relationDef) continue;
 
-        // Add join for this relation
-        columns.push(`(
-          SELECT json_agg(json_build_object(
-            ${relationFields
-              .map((rf: any) => {
-                if (typeof rf === "string") {
-                  return `'${rf}', "${String(targetModelName)}"."${rf}"`;
-                }
-                // Handle nested relations if needed
-                return "";
-              })
-              .filter(Boolean)
-              .join(", ")}
-          ))
-          FROM "${targetModelDef.table}" AS "${String(targetModelName)}"
-          WHERE "${String(targetModelName)}"."${
-          relationDef.to.column
-        }" = "${tableName}"."${relationDef.from}"
-        ) AS "${relationName}"`);
+          const targetModelName = String(relationDef.to.model);
+          const targetModelKey = relationDef.to.model as keyof M;
+          const targetModelDef = models[targetModelKey];
+          if (!targetModelDef) continue;
+
+          // Add join for this relation
+          columns.push(`(
+            SELECT json_agg(json_build_object(
+              ${relationFields
+                .map((rf: any) => {
+                  if (typeof rf === "string") {
+                    return `'${rf}', "${String(targetModelName)}"."${rf}"`;
+                  }
+                  // Handle nested relations if needed
+                  return "";
+                })
+                .filter(Boolean)
+                .join(", ")}
+            ))
+            FROM "${targetModelDef.table}" AS "${String(targetModelName)}"
+            WHERE "${String(targetModelName)}"."${
+            relationDef.to.column
+          }" = "${tableName}"."${relationDef.from}"
+          ) AS "${relationName}"`);
+        }
       }
     }
   }
 
-  return columns.join(", ");
+  return columns.length > 0 ? columns.join(", ") : `"${tableName}".*`;
 }
 
 /**
@@ -262,16 +283,31 @@ function processResults<
     const processedRow: any = {};
     const tableName = String(modelName);
 
-    // Process columns
-    for (const field of selectFields) {
-      if (typeof field === "string") {
-        // Basic column
-        const columnKey = `${tableName}_${field}`;
-        processedRow[field] = row[columnKey];
-      } else {
-        // Relations
-        for (const relationName of Object.keys(field)) {
-          processedRow[relationName] = row[relationName] || [];
+    // If no fields were explicitly selected, include all returned columns
+    if (selectFields.length === 0) {
+      // Get all columns from the row that belong to this table
+      const prefix = `${tableName}_`;
+      for (const key of Object.keys(row)) {
+        if (key.startsWith(prefix)) {
+          const fieldName = key.substring(prefix.length);
+          processedRow[fieldName] = row[key];
+        } else if (!key.includes("_")) {
+          // Handle direct column access (when using tableName.*)
+          processedRow[key] = row[key];
+        }
+      }
+    } else {
+      // Process specifically selected columns
+      for (const field of selectFields) {
+        if (typeof field === "string") {
+          // Basic column
+          const columnKey = `${tableName}_${field}`;
+          processedRow[field] = row[columnKey];
+        } else {
+          // Relations
+          for (const relationName of Object.keys(field)) {
+            processedRow[relationName] = row[relationName] || [];
+          }
         }
       }
     }

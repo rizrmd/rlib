@@ -90,6 +90,7 @@ export type ModelQueryList<M, N extends keyof M> = (opt?: {
   orderBy?: OrderByClause<M, N>;
   limit?: number;
   skip?: number;
+  debug?: boolean;
 }) => Promise<any>; // Return type can be made more specific based on selection
 
 export type ModelOperation<

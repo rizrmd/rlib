@@ -3,8 +3,8 @@
  * Provides functions to query table structure, columns, and relationships
  */
 
-import { sql } from "bun";
 import type { RelationDefinition } from "../types-gen";
+import { sql } from "./conn";
 
 export interface TableColumn {
   table_schema: string;
