@@ -1,4 +1,3 @@
-import { sql } from "bun";
 import type { ModelDefinition } from "../types-gen";
 import type {
     ComparisonOperator,
@@ -7,6 +6,7 @@ import type {
     SelectFields,
     WhereFields
 } from "../types-lib";
+import { sql } from "./conn";
 
 /**
  * Creates a query function that implements the ModelQueryList interface
