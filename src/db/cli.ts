@@ -3,10 +3,10 @@
  * Database CLI tool for inspecting database structure and generating model files
  */
 
-import { mkdir, writeFile } from 'fs/promises';
-import { join, dirname } from 'path';
-import { existsSync } from 'fs';
-import { inspectAll, inspectAllWithProgress } from './postgres/inspect';
+import { mkdir, writeFile } from "fs/promises";
+import { join, dirname } from "path";
+import { existsSync } from "fs";
+import { inspectAll, inspectAllWithProgress } from "./postgres/inspect";
 
 /**
  * Ensure directory exists, creating it if needed
@@ -24,11 +24,15 @@ async function ensureDir(dir: string) {
  * @param tableName Table name
  * @param modelContent Model content to write
  */
-async function writeModelFile(basePath: string, tableName: string, modelContent: string) {
+async function writeModelFile(
+  basePath: string,
+  tableName: string,
+  modelContent: string
+) {
   const dirPath = join(basePath, tableName);
   await ensureDir(dirPath);
-  
-  const filePath = join(dirPath, 'model.ts');
+
+  const filePath = join(dirPath, "model.ts");
   await writeFile(filePath, modelContent);
 }
 
@@ -43,12 +47,15 @@ const modelImportStatement = `import type { ModelDefinition } from 'rlib';\n\n`;
  * @param tableNames Array of table names
  */
 async function generateIndexFile(outputPath: string, tableNames: string[]) {
-  const indexPath = join(outputPath, 'index.ts');
-  
-  const exportStatements = tableNames.map(
-    tableName => `export { default as ${tableName} } from './${tableName}/model';`
-  ).join('\n');
-  
+  const indexPath = join(outputPath, "index.ts");
+
+  const exportStatements = tableNames
+    .map(
+      (tableName) =>
+        `export { default as ${tableName} } from './${tableName}/model';`
+    )
+    .join("\n");
+
   const indexContent = `/**
  * Auto-generated model exports
  * Generated on ${new Date().toISOString()}
@@ -58,7 +65,9 @@ ${exportStatements}
 `;
 
   await writeFile(indexPath, indexContent);
-  console.log(`Generated index.ts with exports for ${tableNames.length} models`);
+  console.log(
+    `Generated index.ts with exports for ${tableNames.length} models`
+  );
 }
 
 /**
@@ -66,27 +75,33 @@ ${exportStatements}
  * @param outputPath Path to store the generated models
  */
 async function runInspect(outputPath: string) {
-  console.log('Inspecting database tables...');
-  
+  console.log("Inspecting database tables...");
+
   try {
     const results = await inspectAllWithProgress((tableName, index, total) => {
-      console.log(`Processing table ${index+1}/${total}: ${tableName}`);
+      console.log(`Processing table ${index + 1}/${total}: ${tableName}`);
     });
-    
+
     const tableNames = Object.keys(results);
-    console.log(`\nFound ${tableNames.length} tables. Generating model files...`);
-    
+    console.log(
+      `\nFound ${tableNames.length} tables. Generating model files...`
+    );
+
     for (const [tableName, modelDef] of Object.entries(results)) {
-      await writeModelFile(outputPath, tableName, modelImportStatement + modelDef);
+      await writeModelFile(
+        outputPath,
+        tableName,
+        modelImportStatement + modelDef
+      );
       console.log(`Generated model file for ${tableName}`);
     }
-    
+
     // Generate the index.ts file
     await generateIndexFile(outputPath, tableNames);
-    
+
     console.log(`\nDone! Model files written to ${outputPath}`);
   } catch (error) {
-    console.error('Error inspecting database:', error);
+    console.error("Error inspecting database:", error);
     process.exit(1);
   }
 }
@@ -99,14 +114,14 @@ async function main() {
   const args = process.argv.slice(2);
   const command = args[0];
   const cwd = process.cwd();
-  
+
   switch (command) {
-    case 'inspect':
+    case "inspect":
       // Default output path is ${cwd}/shared/models
-      const outputPath = join(cwd, 'shared', 'models');
+      const outputPath = join(cwd, "shared", "models");
       await runInspect(outputPath);
       break;
-      
+
     default:
       console.log(`
 Database CLI Tool
