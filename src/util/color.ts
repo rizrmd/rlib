@@ -1,0 +1,17 @@
+export const green = "\x1b[32m";
+export const red = "\x1b[31m";
+export const yellow = "\x1b[33m";
+export const blue = "\x1b[34m";
+export const magenta = "\x1b[35m";
+export const cyan = "\x1b[36m";
+export const white = "\x1b[37m";
+export const reset = "\x1b[0m";
+export const bright = "\x1b[1m";
+export const dim = "\x1b[2m";
+export const underline = "\x1b[4m";
+export const inverse = "\x1b[7m";
+export const hidden = "\x1b[8m";
+export const strikethrough = "\x1b[9m";
+export const black = "\x1b[30m";
+export const bgBlack = "\x1b[40m";
+export const bgRed = "\x1b[41m";
