@@ -151,7 +151,6 @@ ${apiObjectEntries}
 
     // Write the output file
     fs.writeFileSync(paths.out, content);
-    console.log(`API exports generated at ${paths.out}`);
   };
 
   // Run the build once at start
