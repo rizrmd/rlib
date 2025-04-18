@@ -39,19 +39,24 @@ export const watchAPI = (config: { input_dir: string; out_file: string }) => {
         if (!fileContent.trim()) {
           // Generate a URL path based on the file path
           const urlPath = relativePath.replace(/\\/g, "/");
+          const url = `"/api/${file
+    .substring(0, file.length - 3)
+    .replace(/\\/g, "/")
+    .split("/")
+    .filter((e) => !e.includes(".")).join('/')}"`
           const apiTemplate = `import { defineAPI } from "rlib";
 
 export default defineAPI({
-  url: "/api/hello/world",
-  handler: async () => {
-    console.log("hello-world");
+  url: ${url},
+  async handler() {
+    const req = this.req!;
+    console.log("route: " + ${url});
     return {};
   },
 });
 `;
           // Write the template to the file
           fs.writeFileSync(fullPath, apiTemplate);
-          console.log(`Populated empty file with template: ${file}`);
           // Update the file content for further processing
           fileContent = apiTemplate;
         }
