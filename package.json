@@ -1,11 +1,9 @@
 {
   "name": "rlib",
   "version": "0.0.2",
-  "module": "src/index.ts",
   "type": "module",
-  "types": "src/index.ts",
   "scripts": {
-    "db": "bun run ./src/db/cli.ts"
+    "db": "bun run ./server/db/cli.ts"
   },
   "devDependencies": {
     "@types/bun": "latest"
