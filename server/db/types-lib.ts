@@ -163,6 +163,43 @@ export type ModelQueryFirstOptions<
       debug?: boolean;
     };
 
+// Types for create operation
+export type ModelCreateOptions<
+  M,
+  N extends keyof M,
+  Debug extends boolean = false
+> = {
+  data: {
+    [F in ModelField<M, N>]?: FieldValue<M, N, F>;
+  };
+  relations?: {
+    [R in RelationField<M, N>]?: {
+      create?: any[];
+    };
+  };
+  debug?: Debug;
+};
+
+// Types for update operation
+export type ModelUpdateOptions<
+  M,
+  N extends keyof M,
+  Debug extends boolean = false
+> = {
+  data: {
+    [F in ModelField<M, N>]?: FieldValue<M, N, F>;
+  };
+  where?: WhereFields<M, N>;
+  relations?: {
+    [R in RelationField<M, N>]?: {
+      create?: any[];
+      update?: { where: any; data: any }[];
+      delete?: any[];
+    };
+  };
+  debug?: Debug;
+};
+
 export type ModelQueryList<M, N extends keyof M> = <
   S extends SelectFields<M, N> | undefined = undefined,
   Debug extends boolean = false
@@ -185,12 +222,30 @@ export type ModelQueryFirst<M, N extends keyof M> = <
     : ModelResultType<M, N, S> | null
 >;
 
+export type ModelCreate<M, N extends keyof M> = <Debug extends boolean = false>(
+  options: ModelCreateOptions<M, N, Debug>
+) => Promise<
+  Debug extends true
+    ? { data: any; sql: string } | { data: null; error: string }
+    : any
+>;
+
+export type ModelUpdate<M, N extends keyof M> = <Debug extends boolean = false>(
+  options: ModelUpdateOptions<M, N, Debug>
+) => Promise<
+  Debug extends true
+    ? { data: any; sql: string } | { data: null; error: string }
+    : any
+>;
+
 export type ModelOperation<
   M extends Record<string, ModelDefinition<string>>,
   N extends keyof M
 > = {
   findMany: ModelQueryList<M, N>;
   findFirst: ModelQueryFirst<M, N>;
+  create: ModelCreate<M, N>;
+  update: ModelUpdate<M, N>;
 };
 
 export type ModelOperations<M extends Record<string, ModelDefinition<string>>> =

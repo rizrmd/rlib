@@ -1,5 +1,6 @@
 import { SQL } from "bun";
-import { createFindMany, createFindFirst } from "./postgres/query";
+import { createFindMany, createFindFirst } from "./postgres/query-read";
+import { createCreate, createUpdate } from "./postgres/query-write";
 import type { ModelDefinition } from "./types-gen";
 import type { ModelOperations } from "./types-lib";
 
@@ -20,6 +21,8 @@ export const defineDB = async <T extends { [K in string]: ModelDefinition<K> }>(
     db[modelName] = {
       findMany: createFindMany(modelName, modelDef, models, sql),
       findFirst: createFindFirst(modelName, modelDef, models, sql),
+      create: createCreate(modelName, modelDef, models, sql),
+      update: createUpdate(modelName, modelDef, models, sql),
     };
   }
 

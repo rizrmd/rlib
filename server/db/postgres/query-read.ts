@@ -298,7 +298,7 @@ function buildWhereClause<
 /**
  * Builds WHERE clause as a raw SQL string
  */
-function buildWhereClauseStr<
+export function buildWhereClauseStr<
   M extends Record<string, ModelDefinition<string>>,
   N extends keyof M
 >(modelName: N, whereFields: WhereFields<M, N>, models: M): string {
@@ -615,7 +615,31 @@ function processResults<
           processedRow[field] = row[columnKey];
         } else if (typeof value === "object" && value !== null) {
           // It's a relation
-          processedRow[field] = row[field] || [];
+          const modelDef = models[modelName];
+          
+          if (modelDef && modelDef.relations && modelDef.relations[field]) {
+            const relationType = modelDef.relations[field].type;
+            
+            // Handle relation data based on type
+            if (relationType === "has_many") {
+              // Ensure has_many relationships return as arrays
+              const relationData = row[field];
+              if (relationData === null) {
+                processedRow[field] = [];
+              } else if (Array.isArray(relationData)) {
+                processedRow[field] = relationData;
+              } else {
+                // If it's not already an array, wrap it in an array to ensure consistent return type
+                processedRow[field] = [relationData];
+              }
+            } else {
+              // For has_one and belongs_to, keep as is or default to null/empty array
+              processedRow[field] = row[field] || null;
+            }
+          } else {
+            // Fallback for unknown relations
+            processedRow[field] = row[field] || [];
+          }
         }
       });
     }
