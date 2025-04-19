@@ -50,9 +50,9 @@ export const init = async <
       if (req.method === "POST") {
         const params = await req.json();
         if (Array.isArray(params)) {
-          result = await ctx.handler.call(params);
+          result = await (ctx.handler as any)(...params);
         } else {
-          result = await ctx.handler();
+          result = await (ctx.handler as any)(params);
         }
       } else {
         result = await ctx.handler();
