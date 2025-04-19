@@ -42,15 +42,19 @@ export const watchAPI = (config: { input_dir: string; out_file: string }) => {
         if (!fileContent.trim()) {
           // Generate a URL path based on the file path
           const urlPath = relativePath.replace(/\\/g, "/");
-          const url = `"/api/${file
+          const fileParts = file
             .substring(0, file.length - 3)
             .replace(/\\/g, "/")
-            .split("/")
+            .split("/");
+          const name = fileParts[fileParts.length - 1];
+          const url = `"/api/${fileParts
             .filter((e) => !e.includes("."))
             .join("/")}"`;
+
           const apiTemplate = `import { defineAPI } from "rlib";
 
 export default defineAPI({
+  name: "${name}",
   url: ${url},
   async handler() {
     const req = this.req!;
