@@ -23,8 +23,11 @@ export const watchAPI = (config: { input_dir: string; out_file: string }) => {
     // Generate imports and API object
     const apiImports: string[] = [];
     // Store endpoints grouped by domain (if applicable)
-    const apiEndpoints: { [url: string]: string } = {}; // For non-domain endpoints
-    const apiDomainEndpoints = new Map<string, { [url: string]: string }>(); // For domain-grouped endpoints
+    const apiEndpoints: { [name: string]: [url: string, string] } = {}; // For non-domain endpoints
+    const apiDomainEndpoints = new Map<
+      string,
+      { [name: string]: [url: string, string] }
+    >(); // For domain-grouped endpoints
 
     for (const file of files) {
       try {
@@ -40,10 +43,11 @@ export const watchAPI = (config: { input_dir: string; out_file: string }) => {
           // Generate a URL path based on the file path
           const urlPath = relativePath.replace(/\\/g, "/");
           const url = `"/api/${file
-    .substring(0, file.length - 3)
-    .replace(/\\/g, "/")
-    .split("/")
-    .filter((e) => !e.includes(".")).join('/')}"`
+            .substring(0, file.length - 3)
+            .replace(/\\/g, "/")
+            .split("/")
+            .filter((e) => !e.includes("."))
+            .join("/")}"`;
           const apiTemplate = `import { defineAPI } from "rlib";
 
 export default defineAPI({
@@ -63,12 +67,19 @@ export default defineAPI({
 
         // Extract the URL from defineAPI({ url: "..." })
         const urlMatch = fileContent.match(/url:\s*["']([^"']+)["']/);
+        const nameMatch = fileContent.match(/name:\s*["']([^"']+)["']/);
         if (!urlMatch) {
           console.warn(`Skipping ${file}: No URL found in API definition`);
           continue;
         }
 
+        if (!nameMatch) {
+          console.warn(`Skipping ${file}: No Name found in API definition`);
+          continue;
+        }
+
         const url = urlMatch[1];
+        const name = nameMatch[1];
 
         // Check if the file path contains folders with dots (domain identifiers)
         const pathParts = relativePath.split("/");
@@ -90,7 +101,7 @@ export default defineAPI({
         );
 
         // If a domain is found, group the endpoint under that domain
-        if (domainIndex !== -1 && url) {
+        if (domainIndex !== -1 && url && name) {
           // Make sure domain is definitely a string
           const domain = pathParts[domainIndex];
           if (domain) {
@@ -102,12 +113,12 @@ export default defineAPI({
             // Now we can safely assign to the domain's endpoints
             const domainEndpoints = apiDomainEndpoints.get(domain);
             if (domainEndpoints) {
-              domainEndpoints[url] = importName;
+              domainEndpoints[name] = [url, importName];
             }
           }
-        } else if (url) {
+        } else if (url && name) {
           // Otherwise add to the regular endpoints
-          apiEndpoints[url] = importName;
+          apiEndpoints[name] = [url, importName];
         }
       } catch (error) {
         console.error(`Error processing file ${file}:`, error);
@@ -116,14 +127,19 @@ export default defineAPI({
 
     // Generate the output file content with domain grouping
     let apiObjectEntries = "";
+    let dryObjectEntries = "";
 
     // Add non-domain endpoints
-    const regularEndpoints = Object.entries(apiEndpoints)
-      .map(([url, importName]) => `  "${url}": ${importName}`)
-      .join(",\n");
+    const regularEndpoints = Object.entries(apiEndpoints).map(
+      ([name, importName]) => [
+        `    "${name}": ["${importName[0]}", ${importName[1]}]`,
+        `    "${name}": "${importName[0]}"`,
+      ]
+    );
 
     if (regularEndpoints) {
-      apiObjectEntries += regularEndpoints;
+      apiObjectEntries += regularEndpoints.map((e) => e[0]).join(",\n");
+      dryObjectEntries += regularEndpoints.map((e) => e[1]).join(",\n");
     }
 
     // Add domain-grouped endpoints
@@ -131,31 +147,70 @@ export default defineAPI({
       // Add a comma if there are regular endpoints
       if (apiObjectEntries && Object.keys(endpoints).length > 0) {
         apiObjectEntries += ",\n";
+        dryObjectEntries += ",\n";
       }
 
-      const domainEndpointsStr = Object.entries(endpoints)
-        .map(([url, importName]) => `    "${url}": ${importName}`)
-        .join(",\n");
+      const domainEndpointsStr = Object.entries(endpoints).map(
+        ([name, importName]) => [
+          `    "${name}": ["${importName[0]}", ${importName[1]}]`,
+          `    "${name}": "${importName[0]}"`,
+        ]
+      );
 
-      apiObjectEntries += `  "${domain}": {\n${domainEndpointsStr}\n  }`;
+      apiObjectEntries += `  "${domain}": {\n${domainEndpointsStr
+        .map((e) => e[0])
+        .join(",\n")}\n  }`;
+      dryObjectEntries += `  "${domain}": {\n${domainEndpointsStr
+        .map((e) => e[1])
+        .join(",\n")}\n  }`;
     });
 
     const content = `// Auto-generated API exports
+import type { ApiDefinitions } from "rlib/server";
 ${apiImports.join("\n")}
 
 export const api = {
 ${apiObjectEntries}
-};
+} as const satisfies ApiDefinitions;
+`;
+
+    const dryContent = `// Auto-generated API exports
+import type { ApiUrls } from "rlib/server";
+
+export const api = {
+${dryObjectEntries}
+} as const satisfies ApiUrls;
 `;
 
     // Ensure the output directory exists
     const outDir = path.dirname(paths.out);
+
     if (!fs.existsSync(outDir)) {
       fs.mkdirSync(outDir, { recursive: true });
     }
 
     // Write the output file
     fs.writeFileSync(paths.out, content);
+    fs.writeFileSync(
+      paths.out.substring(0, paths.out.length - 2) + "url.ts",
+      dryContent
+    );
+
+    for (const domain of apiDomainEndpoints.keys()) {
+      const outfile = dir.path(`frontend:src/lib/gen/api/${domain}.ts`);
+      if (!fs.existsSync(outfile)) {
+        const content = `// Auto-generated API Client
+import { apiClient } from "rlib/client";
+import type { api as backendApi } from "backend/gen/api";
+import { api as endpoints } from "backend/gen/api.url";
+
+export const api = apiClient({} as typeof backendApi, endpoints, "${domain}");
+      `;
+
+        dir.ensure("frontend:src/lib/gen/api");
+        fs.writeFileSync(outfile, content);
+      }
+    }
   };
 
   // Run the build once at start

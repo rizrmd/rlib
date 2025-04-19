@@ -10,6 +10,7 @@ export const init = async <
   root: string;
   models: T;
   api: any;
+  index: any;
 }) => {
   dir.root = join(process.cwd());
 
@@ -39,7 +40,7 @@ export const init = async <
   >;
 
   const createHandler = (handler: any) => {
-    return async (req: BunRequest) => {
+    const fn = async (req: BunRequest) => {
       const ctx = { ...(handler as any), req } as {
         url: string;
         handler: () => any;
@@ -74,27 +75,35 @@ export const init = async <
         },
       });
     };
+
+    return { GET: fn, POST: fn, PUT: fn, DELETE: fn, OPTIONS: fn };
   };
 
   for (const [name] of Object.entries(config.sites)) {
-    routes[name] = {};
+    routes[name] = { "/*": opt.index };
     try {
-      for (const [url, handler] of Object.entries(opt.api)) {
-        if (!url.includes(".")) {
-          routes[name][url] = createHandler(handler);
+      for (const [_, item] of Object.entries(opt.api)) {
+        if (Array.isArray(item)) {
+          const [url, handler] = item as any;
+          if (!url.includes(".")) {
+            routes[name][url] = createHandler(handler);
+          }
         }
       }
 
       for (const [url, value] of Object.entries(opt.api)) {
         if (url.includes(".")) {
           if (name === url) {
-            for (const [route, handler] of Object.entries(value as any)) {
+            for (const [_, item] of Object.entries(value as any)) {
+              const [route, handler] = item as any;
               routes[name][route] = createHandler(handler);
             }
           }
         }
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   return {

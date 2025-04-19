@@ -1,6 +1,7 @@
 import type { BunRequest } from "bun";
 
 export const defineAPI = <K extends string, T extends any>(opt: {
+  name: string;
   url: K;
   handler: T;
   req?: BunRequest<K>;
