@@ -439,3 +439,52 @@ export async function inspectAllWithProgress(
 
   return results;
 }
+
+/**
+ * Inspect all tables in the database in parallel and generate formatted model definitions with progress tracking
+ * @param concurrency Number of parallel operations to run (defaults to 4)
+ * @param progressCallback Optional callback function to track progress
+ * @returns Record of table names to their formatted model definitions
+ */
+export async function inspectAllWithProgressParallel(
+  sql: Bun.SQL,
+  concurrency: number = 4,
+  progressCallback?: (tableName: string, index: number, total: number) => void
+): Promise<Record<string, string>> {
+  const tables = await getTables(sql);
+  const results: Record<string, string> = {};
+  const total = tables.length;
+  
+  // Track completion for progress reporting
+  let completed = 0;
+  
+  // Process tables in batches for parallel execution
+  for (let i = 0; i < tables.length; i += concurrency) {
+    const batch = tables.slice(i, i + concurrency);
+    const batchPromises = batch.map(async (tableName, batchIndex) => {
+      if (!tableName) return;
+      
+      const tableResult = await inspectTable(sql, tableName);
+      
+      // Update progress after each table is processed
+      completed++;
+      if (progressCallback) {
+        progressCallback(tableName, i + batchIndex, total);
+      }
+      
+      return { tableName, result: tableResult };
+    });
+    
+    // Wait for the current batch to complete
+    const batchResults = await Promise.all(batchPromises);
+    
+    // Add batch results to the final results object
+    batchResults.forEach(item => {
+      if (item && item.tableName) {
+        results[item.tableName] = item.result;
+      }
+    });
+  }
+
+  return results;
+}
