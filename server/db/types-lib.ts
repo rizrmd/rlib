@@ -170,6 +170,50 @@ export type ModelQueryFirstOptions<
       debug?: boolean;
     };
 
+// Types for relation operations in create and update
+export type RelationCreateItem<
+  M,
+  N extends keyof M,
+  R extends RelationField<M, N>
+> = {
+  [F in ModelField<M, RelationTargetInfo<M, N, R>>]?: FieldValue<
+    M,
+    RelationTargetInfo<M, N, R>,
+    F
+  >;
+};
+
+export type RelationUpdateItem<
+  M,
+  N extends keyof M,
+  R extends RelationField<M, N>
+> = {
+  [F in ModelField<M, RelationTargetInfo<M, N, R>>]?: FieldValue<
+    M,
+    RelationTargetInfo<M, N, R>,
+    F
+  >;
+};
+
+export type RelationDeleteItem<M, N extends keyof M> = {
+  _delete: true;
+};
+
+// Union type for relation items in operations
+export type RelationItem<M, N extends keyof M, R extends RelationField<M, N>> =
+  | RelationCreateItem<M, N, R>
+  | RelationUpdateItem<M, N, R>
+  | RelationDeleteItem<M, N>;
+
+// Relation value can be a single item or array depending on relation type
+export type RelationValue<
+  M,
+  N extends keyof M,
+  R extends RelationField<M, N>
+> = ModelRelations<M, N>[R] extends { type: "has_many" }
+  ? RelationItem<M, N, R>[]
+  : RelationItem<M, N, R> | null;
+
 // Types for create operation
 export type ModelCreateOptions<
   M,
@@ -178,11 +222,8 @@ export type ModelCreateOptions<
 > = {
   data: {
     [F in ModelField<M, N>]?: FieldValue<M, N, F>;
-  };
-  relations?: {
-    [R in RelationField<M, N>]?: {
-      create?: any[];
-    };
+  } & {
+    [R in RelationField<M, N>]?: RelationValue<M, N, R>;
   };
   debug?: Debug;
 };
@@ -195,15 +236,10 @@ export type ModelUpdateOptions<
 > = {
   data: {
     [F in ModelField<M, N>]?: FieldValue<M, N, F>;
+  } & {
+    [R in RelationField<M, N>]?: RelationValue<M, N, R>;
   };
   where?: WhereFields<M, N>;
-  relations?: {
-    [R in RelationField<M, N>]?: {
-      create?: any[];
-      update?: { where: any; data: any }[];
-      delete?: any[];
-    };
-  };
   debug?: Debug;
 };
 
