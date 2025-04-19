@@ -41,9 +41,9 @@ export type RelationTargetInfo<
 
 // Handle recursive selection structure with strict validation
 export type SelectFields<M, N extends keyof M> = {
-  [F in ModelField<M, N>]?: true;
+  [F in ModelField<M, N>]: true;
 } & {
-  [R in RelationField<M, N>]?:
+  [R in RelationField<M, N>]:
     | SelectFields<M, RelationTargetInfo<M, N, R>>
     | true
     | {};
@@ -164,7 +164,7 @@ export type ModelQueryFirstOptions<
       debug?: boolean;
     }
   : {
-      select: S;
+      select: Partial<{ [K in keyof S]: K extends keyof S ? S[K] : never }>;
       where?: WhereFields<M, N>;
       orderBy?: OrderByClause<M, N>;
       debug?: boolean;
