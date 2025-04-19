@@ -122,6 +122,7 @@ async function main() {
 
   switch (command) {
     case "inspect":
+    case "pull":
       // Default output path is ${cwd}/shared/models
       const outputPath = join(cwd, "shared", "models");
       await runInspect(outputPath);
@@ -135,7 +136,7 @@ Available commands:
   inspect - Inspect database tables and generate model files
 
 Usage:
-  bun run db:cli inspect    Generate model files from database tables
+  bun db inspect | pull    Generate model files from database tables
 `);
       break;
   }
