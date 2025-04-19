@@ -59,6 +59,9 @@ export type ComparisonOperator =
   | "in"
   | "nin";
 
+// String operators for convenience
+export type StringOperator = "contains" | "startsWith" | "endsWith";
+
 // Where condition type for a single field
 export type WhereCondition<T> = {
   [K in ComparisonOperator]?: K extends "in" | "nin"
@@ -66,13 +69,19 @@ export type WhereCondition<T> = {
     : K extends "like" | "ilike"
     ? string
     : T;
-};
+} & (T extends string ? {
+  [K in StringOperator]?: string;
+} : {});
 
 // Where clauses for model fields and relations
 export type WhereFields<M, N extends keyof M> = {
   [F in ModelField<M, N>]?: WhereCondition<FieldValue<M, N, F>> | FieldValue<M, N, F>;
 } & {
   [R in RelationField<M, N>]?: WhereFields<M, RelationTargetInfo<M, N, R>>;
+} & {
+  AND?: WhereFields<M, N>[];
+  OR?: WhereFields<M, N>[];
+  NOT?: WhereFields<M, N>;
 };
 
 // Order by direction type

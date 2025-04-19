@@ -302,13 +302,49 @@ function buildWhereClauseStr<
   M extends Record<string, ModelDefinition<string>>,
   N extends keyof M
 >(modelName: N, whereFields: WhereFields<M, N>, models: M): string {
+  return processLogicalOperators(modelName, whereFields, models);
+}
+
+/**
+ * Process the logical operators and build the WHERE clause
+ */
+function processLogicalOperators<
+  M extends Record<string, ModelDefinition<string>>,
+  N extends keyof M
+>(modelName: N, whereFields: WhereFields<M, N>, models: M): string {
+  // Handle logical operators at the top level
+  const logicalOperators = ['AND', 'OR', 'NOT'] as const;
   const conditions: string[] = [];
   const tableName = String(modelName);
   const modelDef = models[modelName];
 
   if (!modelDef) return "1=1";
 
+  // Process each field or logical operator
   for (const [field, condition] of Object.entries(whereFields)) {
+    // Handle logical operators
+    if (field === 'AND' && Array.isArray(condition)) {
+      const andConditions = condition.map(cond => processLogicalOperators(modelName, cond, models));
+      if (andConditions.length > 0) {
+        conditions.push(`(${andConditions.join(" AND ")})`);
+      }
+      continue;
+    }
+    
+    if (field === 'OR' && Array.isArray(condition)) {
+      const orConditions = condition.map(cond => processLogicalOperators(modelName, cond, models));
+      if (orConditions.length > 0) {
+        conditions.push(`(${orConditions.join(" OR ")})`);
+      }
+      continue;
+    }
+
+    if (field === 'NOT' && condition && typeof condition === 'object') {
+      const notCondition = processLogicalOperators(modelName, condition as WhereFields<M, N>, models);
+      conditions.push(`NOT (${notCondition})`);
+      continue;
+    }
+
     // Check if it's a field or a relation
     if (modelDef.columns && modelDef.columns[field]) {
       // It's a column field
@@ -332,14 +368,39 @@ function buildWhereClauseStr<
       } else if (condition !== null && typeof condition === 'object') {
         // Regular object with operators
         for (const [op, value] of Object.entries(condition as any)) {
-          const conditionStr = buildConditionStr(
-            tableName,
-            field,
-            op as ComparisonOperator,
-            value
-          );
-          if (conditionStr) {
-            conditions.push(conditionStr);
+          // Handle special case for string operators like endsWith, startsWith, etc.
+          if (['endsWith', 'startsWith', 'contains'].includes(op)) {
+            let pattern = '';
+            switch (op) {
+              case 'endsWith':
+                pattern = `%${String(value).replace(/[%_]/g, '\\$&')}`;
+                break;
+              case 'startsWith':
+                pattern = `${String(value).replace(/[%_]/g, '\\$&')}%`;
+                break;
+              case 'contains':
+                pattern = `%${String(value).replace(/[%_]/g, '\\$&')}%`;
+                break;
+            }
+            const conditionStr = buildConditionStr(
+              tableName,
+              field,
+              "ilike" as ComparisonOperator,
+              pattern
+            );
+            if (conditionStr) {
+              conditions.push(conditionStr);
+            }
+          } else {
+            const conditionStr = buildConditionStr(
+              tableName,
+              field,
+              op as ComparisonOperator,
+              value
+            );
+            if (conditionStr) {
+              conditions.push(conditionStr);
+            }
           }
         }
       }
