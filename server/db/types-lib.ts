@@ -1,13 +1,15 @@
 import type { ModelDefinition } from "./types-gen";
 
 // Extract column and relation information
-export type ModelColumns<M, N extends keyof M> = M[N] extends ModelDefinition<string>
-  ? M[N]["columns"]
-  : never;
+export type ModelColumns<
+  M,
+  N extends keyof M
+> = M[N] extends ModelDefinition<string> ? M[N]["columns"] : never;
 export type ModelField<M, N extends keyof M> = keyof ModelColumns<M, N>;
-export type ModelRelations<M, N extends keyof M> = M[N] extends ModelDefinition<string>
-  ? M[N]["relations"]
-  : never;
+export type ModelRelations<
+  M,
+  N extends keyof M
+> = M[N] extends ModelDefinition<string> ? M[N]["relations"] : never;
 export type RelationField<M, N extends keyof M> = keyof ModelRelations<M, N>;
 
 // Extract actual value type from column definition
@@ -38,14 +40,11 @@ export type RelationTargetInfo<
   : never;
 
 // Handle recursive selection structure
-export type SelectFields<M, N extends keyof M> =
-  | ModelField<M, N>
-  | Partial<{
-      [R in RelationField<M, N>]: SelectFields<
-        M,
-        RelationTargetInfo<M, N, R>
-      >[];
-    }>;
+export type SelectFields<M, N extends keyof M> = {
+  [F in ModelField<M, N>]?: boolean;
+} & {
+  [R in RelationField<M, N>]?: SelectFields<M, RelationTargetInfo<M, N, R>>;
+};
 
 // Define comparison operators for where clauses
 export type ComparisonOperator =
@@ -71,7 +70,7 @@ export type WhereCondition<T> = {
 
 // Where clauses for model fields and relations
 export type WhereFields<M, N extends keyof M> = {
-  [F in ModelField<M, N>]?: WhereCondition<FieldValue<M, N, F>>;
+  [F in ModelField<M, N>]?: WhereCondition<FieldValue<M, N, F>> | FieldValue<M, N, F>;
 } & {
   [R in RelationField<M, N>]?: WhereFields<M, RelationTargetInfo<M, N, R>>;
 };
@@ -88,24 +87,26 @@ export type OrderByClause<M, N extends keyof M> = {
 export type ModelResultType<
   M,
   N extends keyof M,
-  S extends SelectFields<M, N>[] | undefined
-> = S extends SelectFields<M, N>[]
-  ? Array<{
-      [K in S[number] as K extends ModelField<M, N> ? K : never]: K extends ModelField<M, N> 
-        ? FieldValue<M, N, K> 
-        : never;
+  S extends SelectFields<M, N> | undefined
+> = S extends SelectFields<M, N>
+  ? {
+      [K in ModelField<M, N> as K extends keyof S
+        ? S[K] extends true
+          ? K
+          : never
+        : never]: FieldValue<M, N, K>;
     } & {
-      [K in keyof S[number] as K extends RelationField<M, N> ? K : never]: K extends RelationField<M, N>
-        ? ModelResultType<
-            M,
-            RelationTargetInfo<M, N, K>,
-            S[number][K] extends SelectFields<M, RelationTargetInfo<M, N, K>>[] ? S[number][K] : undefined
-          >
+      [K in RelationField<M, N> as K extends keyof S
+        ? K
+        : never]: K extends keyof S
+        ? S[K] extends SelectFields<M, RelationTargetInfo<M, N, K>>
+          ? ModelResultType<M, RelationTargetInfo<M, N, K>, S[K]>
+          : never
         : never;
-    }>
-  : Array<{
+    }
+  : {
       [K in ModelField<M, N>]: FieldValue<M, N, K>;
-    }>;
+    };
 
 // Debug response type for when debug is set to true
 export interface DebugResponse<T> {
@@ -114,39 +115,65 @@ export interface DebugResponse<T> {
 }
 
 // Query options type with an explicit debug flag
-export interface ModelQueryOptions<M, N extends keyof M, S extends SelectFields<M, N>[] | undefined = undefined> {
-  select?: S;
-  where?: WhereFields<M, N>;
-  orderBy?: OrderByClause<M, N>;
-  limit?: number;
-  skip?: number;
-  debug?: boolean; 
-}
+export type ModelQueryListOptions<
+  M,
+  N extends keyof M,
+  S extends SelectFields<M, N> | undefined = undefined
+> = S extends undefined
+  ? {
+      where?: WhereFields<M, N>;
+      orderBy?: OrderByClause<M, N>;
+      limit?: number;
+      skip?: number;
+      debug?: boolean;
+    }
+  : {
+      select: S;
+      where?: WhereFields<M, N>;
+      orderBy?: OrderByClause<M, N>;
+      limit?: number;
+      skip?: number;
+      debug?: boolean;
+    };
 
 // Query options for findFirst (without limit and skip)
-export interface ModelQueryFirstOptions<M, N extends keyof M, S extends SelectFields<M, N>[] | undefined = undefined> {
-  select?: S;
-  where?: WhereFields<M, N>;
-  orderBy?: OrderByClause<M, N>;
-  debug?: boolean;
-}
+export type ModelQueryFirstOptions<
+  M,
+  N extends keyof M,
+  S extends SelectFields<M, N> | undefined = undefined
+> = S extends undefined
+  ? {
+      where?: WhereFields<M, N>;
+      orderBy?: OrderByClause<M, N>;
+      debug?: boolean;
+    }
+  : {
+      select: S;
+      where?: WhereFields<M, N>;
+      orderBy?: OrderByClause<M, N>;
+      debug?: boolean;
+    };
 
 export type ModelQueryList<M, N extends keyof M> = <
-  S extends SelectFields<M, N>[] | undefined = undefined,
+  S extends SelectFields<M, N> | undefined = undefined,
   Debug extends boolean = false
->(options?: ModelQueryOptions<M, N, S> & { debug?: Debug }) => Promise<
+>(
+  options?: ModelQueryListOptions<M, N, S> & { debug?: Debug }
+) => Promise<
   Debug extends true
-    ? DebugResponse<ModelResultType<M, N, S>>
-    : ModelResultType<M, N, S>
+    ? DebugResponse<ModelResultType<M, N, S>[]>
+    : ModelResultType<M, N, S>[]
 >;
 
 export type ModelQueryFirst<M, N extends keyof M> = <
-  S extends SelectFields<M, N>[] | undefined = undefined,
+  S extends SelectFields<M, N>,
   Debug extends boolean = false
->(options?: ModelQueryFirstOptions<M, N, S> & { debug?: Debug }) => Promise<
+>(
+  options?: ModelQueryFirstOptions<M, N, S> & { debug?: Debug }
+) => Promise<
   Debug extends true
-    ? { data: ModelResultType<M, N, S>[0] | null; sql: string }
-    : ModelResultType<M, N, S>[0] | null
+    ? { data: ModelResultType<M, N, S> | null; sql: string }
+    : ModelResultType<M, N, S> | null
 >;
 
 export type ModelOperation<
@@ -157,6 +184,7 @@ export type ModelOperation<
   findFirst: ModelQueryFirst<M, N>;
 };
 
-export type ModelOperations<M extends Record<string, ModelDefinition<string>>> = {
-  [N in keyof M]: ModelOperation<M, N>;
-};
+export type ModelOperations<M extends Record<string, ModelDefinition<string>>> =
+  {
+    [N in keyof M]: ModelOperation<M, N>;
+  };

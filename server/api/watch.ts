@@ -51,7 +51,7 @@ export const watchAPI = (config: { input_dir: string; out_file: string }) => {
             .filter((e) => !e.includes("."))
             .join("/")}"`;
 
-          const apiTemplate = `import { defineAPI } from "rlib";
+          const apiTemplate = `import { defineAPI } from "rlib/server";
 
 export default defineAPI({
   name: "${name}",

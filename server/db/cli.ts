@@ -40,7 +40,7 @@ async function writeModelFile(
 /**
  * Import statement to be added to the model files
  */
-const modelImportStatement = `import type { ModelDefinition } from 'rlib';\n\n`;
+const modelImportStatement = `import type { ModelDefinition } from "rlib/server";\n\n`;
 
 /**
  * Generate index.ts file that exports all models
