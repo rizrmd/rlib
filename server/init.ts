@@ -9,7 +9,7 @@ export const init = async <
 >(opt: {
   root: string;
   models: T;
-  api: any;
+  backendApi: any;
   index: any;
 }) => {
   dir.root = join(process.cwd());
@@ -82,7 +82,7 @@ export const init = async <
   for (const [name] of Object.entries(config.sites)) {
     routes[name] = { "/*": opt.index };
     try {
-      for (const [_, item] of Object.entries(opt.api)) {
+      for (const [_, item] of Object.entries(opt.backendApi)) {
         if (Array.isArray(item)) {
           const [url, handler] = item as any;
           if (!url.includes(".")) {
@@ -91,7 +91,7 @@ export const init = async <
         }
       }
 
-      for (const [url, value] of Object.entries(opt.api)) {
+      for (const [url, value] of Object.entries(opt.backendApi)) {
         if (url.includes(".")) {
           if (name === url) {
             for (const [_, item] of Object.entries(value as any)) {

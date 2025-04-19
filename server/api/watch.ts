@@ -169,7 +169,7 @@ export default defineAPI({
 import type { ApiDefinitions } from "rlib/server";
 ${apiImports.join("\n")}
 
-export const api = {
+export const backendApi = {
 ${apiObjectEntries}
 } as const satisfies ApiDefinitions;
 `;
@@ -177,7 +177,7 @@ ${apiObjectEntries}
     const dryContent = `// Auto-generated API exports
 import type { ApiUrls } from "rlib/server";
 
-export const api = {
+export const endpoints = {
 ${dryObjectEntries}
 } as const satisfies ApiUrls;
 `;
@@ -201,10 +201,10 @@ ${dryObjectEntries}
       if (!fs.existsSync(outfile)) {
         const content = `// Auto-generated API Client
 import { apiClient } from "rlib/client";
-import type { api as backendApi } from "backend/gen/api";
-import { api as endpoints } from "backend/gen/api.url";
+import type { backendApi } from "backend/gen/api";
+import { endpoints } from "backend/gen/api.url";
 
-export const api = apiClient({} as typeof backendApi, endpoints, "${domain}");
+export const backendApi = apiClient({} as typeof backendApi, endpoints, "${domain}");
       `;
 
         dir.ensure("frontend:src/lib/gen/api");
