@@ -228,7 +228,7 @@ function buildSelectClause<
     if (modelDef && modelDef.columns) {
       // Add all columns from the model
       Object.keys(modelDef.columns).forEach((column) => {
-        columns.push(`"${tableName}"."${column}" AS ${tableName}_${column}`);
+        columns.push(`"${tableName}"."${column}" AS "${tableName}_${column}"`);
       });
     }
 
@@ -242,26 +242,79 @@ function buildSelectClause<
     if (modelDef && modelDef.columns) {
       // Process model fields (where value is true)
       Object.entries(selectFields).forEach(([field, value]) => {
-        if (value === true && modelDef.columns[field]) {
+        if (value === true && modelDef.columns && modelDef.columns[field]) {
           // Basic column selection
-          columns.push(`"${tableName}"."${field}" AS ${tableName}_${field}`);
-        } else if (typeof value === "object" && value !== null) {
-          // It's a relation
+          columns.push(`"${tableName}"."${field}" AS "${tableName}_${field}"`);
+        } else if (value === true && modelDef.relations && modelDef.relations[field]) {
+          // It's a relation with "true" value - select all columns
           const relationDef = getRelation(models, modelName, field);
-          if (!relationDef) return;
+          if (!relationDef) {
+            console.warn(`[DB Warning] Relation '${String(field)}' not found in model '${String(modelName)}'. SQL for this relation will not be generated.`);
+            return;
+          }
 
           const targetModelName = String(relationDef.to.model);
           const targetModelKey = relationDef.to.model as keyof M;
           const targetModelDef = models[targetModelKey];
-          if (!targetModelDef) return;
+          if (!targetModelDef) {
+            console.warn(`[DB Warning] Target model '${String(targetModelName)}' for relation '${String(field)}' not found. SQL for this relation will not be generated.`);
+            return;
+          }
 
-          // Build nested selection for the relation
-          const targetSelectFields = value as SelectFields<M, any>;
+          // Select all columns from the target model
+          let relationFields: string[] = [];
+          if (targetModelDef.columns) {
+            relationFields = Object.keys(targetModelDef.columns);
+          }
+
+          if (relationFields.length > 0) {
+            // Add join for this relation
+            columns.push(`(
+              SELECT json_agg(json_build_object(
+                ${relationFields
+                  .map((rf) => `'${rf}', "${String(targetModelName)}"."${rf}"`)
+                  .join(", ")}
+              ))
+              FROM "${targetModelDef.table}" AS "${String(targetModelName)}"
+              WHERE "${String(targetModelName)}"."${
+              relationDef.to.column
+            }" = "${tableName}"."${relationDef.from}"
+            ) AS "${field}"`);
+          }
+        } else if (typeof value === "object" && value !== null) {
+          // It's a relation with object specifying fields
+          const relationDef = getRelation(models, modelName, field);
+          if (!relationDef) {
+            console.warn(`[DB Warning] Relation '${String(field)}' not found in model '${String(modelName)}'. SQL for this relation will not be generated.`);
+            return;
+          }
+
+          const targetModelName = String(relationDef.to.model);
+          const targetModelKey = relationDef.to.model as keyof M;
+          const targetModelDef = models[targetModelKey];
+          if (!targetModelDef) {
+            console.warn(`[DB Warning] Target model '${String(targetModelName)}' for relation '${String(field)}' not found. SQL for this relation will not be generated.`);
+            return;
+          }
 
           // Get fields to select from relation
-          const relationFields = Object.entries(targetSelectFields)
-            .filter(([_, v]) => v === true)
-            .map(([f]) => f);
+          let relationFields: string[] = [];
+          
+          // Handle case where relation select is simply 'true' to select all columns
+          if (value === true) {
+            // Select all columns from the target model
+            if (targetModelDef.columns) {
+              relationFields = Object.keys(targetModelDef.columns);
+            }
+          } else {
+            // Build nested selection for the relation with specific fields
+            const targetSelectFields = value as SelectFields<M, any>;
+            
+            // Extract fields marked as true
+            relationFields = Object.entries(targetSelectFields)
+              .filter(([_, v]) => v === true)
+              .map(([f]) => f);
+          }
 
           if (relationFields.length > 0) {
             // Add join for this relation using string concatenation instead of SQL tagged templates
@@ -271,11 +324,11 @@ function buildSelectClause<
                   .map((rf) => `'${rf}', "${String(targetModelName)}"."${rf}"`)
                   .join(", ")}
               ))
-              FROM "${targetModelDef.table}" AS ${String(targetModelName)}
+              FROM "${targetModelDef.table}" AS "${String(targetModelName)}"
               WHERE "${String(targetModelName)}"."${
               relationDef.to.column
             }" = "${tableName}"."${relationDef.from}"
-            ) AS ${field}`);
+            ) AS "${field}"`);
           }
         }
       });
@@ -461,14 +514,14 @@ function processLogicalOperators<
           
         conditions.push(`EXISTS (
           SELECT 1 
-          FROM "${targetModelDef.table}" AS ${targetModelName}
+          FROM "${targetModelDef.table}" AS "${targetModelName}"
           WHERE "${targetModelName}"."${relationDef.to.column}" = "${tableName}"."${relationDef.from}"${relationWhereStr}
         )`);
       } else {
         // Simple existence check if no conditions specified
         conditions.push(`EXISTS (
           SELECT 1 
-          FROM "${targetModelDef.table}" AS ${targetModelName}
+          FROM "${targetModelDef.table}" AS "${targetModelName}"
           WHERE "${targetModelName}"."${relationDef.to.column}" = "${tableName}"."${relationDef.from}"
         )`);
       }

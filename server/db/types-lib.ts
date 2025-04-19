@@ -39,11 +39,14 @@ export type RelationTargetInfo<
     : never
   : never;
 
-// Handle recursive selection structure
+// Handle recursive selection structure with strict validation
 export type SelectFields<M, N extends keyof M> = {
-  [F in ModelField<M, N>]?: boolean;
+  [F in ModelField<M, N>]?: true;
 } & {
-  [R in RelationField<M, N>]?: SelectFields<M, RelationTargetInfo<M, N, R>>;
+  [R in RelationField<M, N>]?:
+    | SelectFields<M, RelationTargetInfo<M, N, R>>
+    | true
+    | {};
 };
 
 // Define comparison operators for where clauses
@@ -69,13 +72,17 @@ export type WhereCondition<T> = {
     : K extends "like" | "ilike"
     ? string
     : T;
-} & (T extends string ? {
-  [K in StringOperator]?: string;
-} : {});
+} & (T extends string
+  ? {
+      [K in StringOperator]?: string;
+    }
+  : {});
 
 // Where clauses for model fields and relations
 export type WhereFields<M, N extends keyof M> = {
-  [F in ModelField<M, N>]?: WhereCondition<FieldValue<M, N, F>> | FieldValue<M, N, F>;
+  [F in ModelField<M, N>]?:
+    | WhereCondition<FieldValue<M, N, F>>
+    | FieldValue<M, N, F>;
 } & {
   [R in RelationField<M, N>]?: WhereFields<M, RelationTargetInfo<M, N, R>>;
 } & {
