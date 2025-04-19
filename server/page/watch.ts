@@ -35,7 +35,6 @@ export const watchPage = (opt: { input_dir: string; out_file: string }) => {
     const routes = generateRoutes(PAGES_DIR);
     const content = `\
 // Auto-generated file - DO NOT EDIT
-// Generated on ${new Date().toISOString()}
 export const pageModules: Record<string, () => Promise<any>> = {
 ${Object.entries(routes)
   .map(([route, path]) => `  "${route}": () => import("${path}"),`)

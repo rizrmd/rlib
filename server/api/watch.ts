@@ -199,7 +199,8 @@ ${dryObjectEntries}
     for (const domain of apiDomainEndpoints.keys()) {
       const outfile = dir.path(`frontend:src/lib/gen/api/${domain}.ts`);
       if (!fs.existsSync(outfile)) {
-        const content = `// Auto-generated API Client
+        const content = `// Auto-generated file - DO NOT EDIT
+
 import { apiClient } from "rlib/client";
 import type { backendApi } from "backend/gen/api";
 import { endpoints } from "backend/gen/api.url";
