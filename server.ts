@@ -8,5 +8,6 @@ export * from "./server/init";
 export * from "./server/page/watch";
 export * from "./server/util/dir";
 import * as color from "./server/util/color";
-export * from './server/util/static-handler'
+export * from './server/util/static-handler';
+export * from './server/util/spa-handler';
 export const c = color;
