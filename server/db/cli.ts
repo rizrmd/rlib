@@ -4,7 +4,7 @@
  */
 
 import { existsSync } from "fs";
-import { mkdir, writeFile } from "fs/promises";
+import { mkdir, writeFile, rm } from "fs/promises";
 import { join } from "path";
 import {
   inspectAllWithProgress,
@@ -19,6 +19,24 @@ import { SQL } from "bun";
 async function ensureDir(dir: string) {
   if (!existsSync(dir)) {
     await mkdir(dir, { recursive: true });
+  }
+}
+
+/**
+ * Remove all models from the output directory
+ * @param basePath Base path for output
+ */
+async function cleanModelsDirectory(basePath: string) {
+  try {
+    if (existsSync(basePath)) {
+      // Remove the entire directory and its contents
+      await rm(basePath, { recursive: true, force: true });
+    }
+    // Recreate the empty directory
+    await mkdir(basePath, { recursive: true });
+  } catch (error) {
+    console.error("Error cleaning models directory:", error);
+    throw error;
   }
 }
 
@@ -127,6 +145,9 @@ async function runInspect(
       )} seconds.`
     );
 
+    // Clean the output directory before writing new models
+    await cleanModelsDirectory(outputPath);
+
     // Write model files without logging each one
     for (const [tableName, modelDef] of Object.entries(results)) {
       await writeModelFile(
@@ -138,7 +159,6 @@ async function runInspect(
 
     // Generate the index.ts file
     await generateIndexFile(outputPath, tableNames);
-
     
     console.log(
       `${tableNames.length} model(s) written in ${outputPath}`
@@ -201,6 +221,7 @@ async function main() {
     case "pull":
       // Default output path is ${cwd}/shared/models unless specified
       const outputPath = options.outputPath || join(cwd, "shared", "models");
+
       await runInspect(outputPath, {
         parallel: options.parallel,
         concurrency: options.concurrency,
