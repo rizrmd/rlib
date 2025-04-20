@@ -16,7 +16,6 @@ export const init = async <
 
   const g = global as any;
 
-  let isRestarted = false;
   if (!g.db) {
     if (!process.env.DATABASE_URL) {
       throw new Error(
@@ -24,11 +23,7 @@ export const init = async <
       );
     }
     g.db = await defineDB(opt.models, process.env.DATABASE_URL!);
-  } else {
-    isRestarted = true;
   }
-
-  let isDev = process.argv.includes("--dev");
 
   const config: SiteConfig = await Bun.file(
     join(process.cwd(), "config.json")
@@ -107,8 +102,6 @@ export const init = async <
   }
 
   return {
-    isRestarted,
-    isDev,
     config,
     routes,
   };
