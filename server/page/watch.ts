@@ -5,6 +5,18 @@ import { dir } from "../util/dir";
 export const watchPage = (opt: { input_dir: string; out_file: string }) => {
   const PAGES_DIR = dir.path(opt.input_dir);
   const ROUTES_FILE = dir.path(opt.out_file);
+  // Watch for changes
+  watch(PAGES_DIR, { recursive: true }, (eventType, filename) => {
+    if (filename && filename.endsWith(".tsx")) {
+      console.log(`Change detected in: ${filename}`);
+      buildPages(opt);
+    }
+  });
+};
+
+export const buildPages = (opt: { input_dir: string; out_file: string }) => {
+  const PAGES_DIR = dir.path(opt.input_dir);
+  const ROUTES_FILE = dir.path(opt.out_file);
 
   function generateRoutes(dir: string, base = ""): Record<string, string> {
     const routes: Record<string, string> = {};
@@ -46,12 +58,4 @@ ${Object.entries(routes)
 
   // Initial generation
   updateRoutesFile();
-
-  // Watch for changes
-  watch(PAGES_DIR, { recursive: true }, (eventType, filename) => {
-    if (filename && filename.endsWith(".tsx")) {
-      console.log(`Change detected in: ${filename}`);
-      updateRoutesFile();
-    }
-  });
 };
