@@ -3,6 +3,7 @@ import { join } from "path";
 import { defineDB } from "./db/define";
 import type { ModelDefinition } from "./db/types-gen";
 import { dir } from "./util/dir";
+import type { SiteConfig } from "../client";
 
 export const init = async <
   T extends { [K in string]: ModelDefinition<K> }
@@ -29,9 +30,9 @@ export const init = async <
 
   let isDev = process.argv.includes("--dev");
 
-  const config: {
-    sites: Record<string, { port: number; domains?: string[] }>;
-  } = await Bun.file(join(process.cwd(), "config.json")).json();
+  const config: SiteConfig = await Bun.file(
+    join(process.cwd(), "config.json")
+  ).json();
 
   const routes = {} as Record<
     string,
