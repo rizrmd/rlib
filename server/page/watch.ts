@@ -14,7 +14,10 @@ export const watchPage = (opt: { input_dir: string; out_file: string }) => {
   });
 };
 
-export const buildPages = (opt: { input_dir: string; out_file: string }) => {
+export const buildPages = async (opt: {
+  input_dir: string;
+  out_file: string;
+}) => {
   const PAGES_DIR = dir.path(opt.input_dir);
   const ROUTES_FILE = dir.path(opt.out_file);
 

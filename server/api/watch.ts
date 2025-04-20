@@ -56,13 +56,13 @@ export const buildAPI = async (config: {
         const apiTemplate = `import { defineAPI } from "rlib/server";
 
 export default defineAPI({
-name: "${name}",
-url: ${url},
-async handler() {
-  const req = this.req!;
-  console.log("route: " + ${url});
-  return {};
-},
+  name: "${name}",
+  url: ${url},
+  async handler() {
+    const req = this.req!;
+    console.log("route: " + ${url});
+    return {};
+  },
 });
 `;
         // Write the template to the file
@@ -231,7 +231,7 @@ export const watchAPI = (config: { input_dir: string; out_file: string }) => {
   watch(paths.in, { recursive: true }, (eventType, filename) => {
     if (filename && filename.endsWith(".ts") && !filename.endsWith(".d.ts")) {
       clearTimeout(timeout.build);
-      timeout.build = setTimeout(buildAPI, 300);
+      timeout.build = setTimeout(() => buildAPI(config), 300);
     }
   });
 };
