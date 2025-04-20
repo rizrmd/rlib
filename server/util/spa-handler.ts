@@ -1,4 +1,4 @@
-import type { BunRequest, Server, ServerWebSocket } from "bun";
+import type { Server, ServerWebSocket } from "bun";
 
 export const spaHandler = (opt: { index: any; port: number }) => {
   const assetServer = Bun.serve({

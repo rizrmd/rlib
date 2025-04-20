@@ -1,3 +1,3 @@
 export type SiteConfig = {
-  sites: Record<string, { port: number; domains?: string[] }>;
+  sites: Record<string, { devPort: number; domains?: string[] }>;
 };
