@@ -19,6 +19,14 @@ type ColumnType<T> = T extends { type: "text" }
   ? number
   : T extends { type: "boolean" }
   ? boolean
+  : T extends { type: "datetime" }
+  ? Date
+  : T extends { type: "date" }
+  ? Date
+  : T extends { type: "time" }
+  ? string
+  : T extends { type: "json" }
+  ? Record<string, any>
   : never;
 
 // Get the value type for a specific model field
@@ -99,6 +107,29 @@ export type OrderByClause<M, N extends keyof M> = {
   [F in ModelField<M, N>]?: OrderDirection;
 };
 
+// Define a helper type to extract relation result types based on selection
+export type ExtractRelationResultType<
+  M,
+  N extends keyof M, 
+  R extends RelationField<M, N>,
+  S
+> = S extends true
+  ? { 
+      [K in ModelField<M, RelationTargetInfo<M, N, R>>]: FieldValue<
+        M, 
+        RelationTargetInfo<M, N, R>,
+        K
+      > 
+    }[]
+  : S extends Record<string, any>
+  ? { 
+      [K in keyof S as S[K] extends true ? K : never]: 
+        K extends ModelField<M, RelationTargetInfo<M, N, R>>
+          ? FieldValue<M, RelationTargetInfo<M, N, R>, K & ModelField<M, RelationTargetInfo<M, N, R>>>
+          : never
+    }[]
+  : never;
+
 // Result type based on selection
 export type ModelResultType<
   M,
@@ -110,20 +141,16 @@ export type ModelResultType<
         ? S[K] extends true
           ? K
           : never
-        : never]: FieldValue<M, N, K>;
+        : never]-?: FieldValue<M, N, K>; // Notice the -? modifier to make fields non-optional
     } & {
       [K in RelationField<M, N> as K extends keyof S
         ? K
-        : never]: K extends keyof S
-        ? S[K] extends true
-          ? any[] // For true, assume array of results
-          : S[K] extends Record<string, any>
-          ? any[] // For object selections, also assume array of results with specific shape
-          : never
+        : never]-?: K extends keyof S
+        ? ExtractRelationResultType<M, N, K & RelationField<M, N>, S[K]>
         : never;
     }
   : {
-      [K in ModelField<M, N>]: FieldValue<M, N, K>;
+      [K in ModelField<M, N>]-?: FieldValue<M, N, K>; // Non-optional by default
     };
 
 // Debug response type for when debug is set to true
@@ -256,6 +283,7 @@ export type ModelQueryList<M, N extends keyof M> = <
     : ModelResultType<M, N, S>[]
 >;
 
+// Define a more specific ModelQueryFirst type to ensure selected fields are non-undefined when the result exists
 export type ModelQueryFirst<M, N extends keyof M> = <
   S extends SelectFields<M, N>,
   Debug extends boolean = false
