@@ -36,6 +36,7 @@ export const initDev = async ({
       backendApi: await loadApi(),
     });
 
+    console.log('hello', index)
     const servers = {} as Record<string, Server>;
     const spa = spaHandler({ index, port: 45622 }); //Single Page App Handler
     const handleStatic = staticFileHandler({
