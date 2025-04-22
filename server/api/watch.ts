@@ -35,7 +35,9 @@ export const buildAPI = async (config: {
     try {
       // Skip non-TypeScript files and test files
       const relativePath = file.replace(/\.ts$/, "");
-      const fullPath = path.join(paths.in, file);
+      const fullPath = file.startsWith(paths.in)
+        ? file
+        : path.join(paths.in, file);
 
       // Read the file content to extract the URL
       let fileContent = fs.readFileSync(fullPath, "utf-8");
