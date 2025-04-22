@@ -90,7 +90,7 @@ export default defineAPI({
       const name = nameMatch[1];
 
       // Check if the file path contains folders with dots (domain identifiers)
-      const pathParts = relativePath.split("/");
+      const pathParts = relativePath.split(path.sep);
       const domainIndex = pathParts.findIndex((part) => part.includes("."));
 
       // Create an import name based on the directory structure
