@@ -1,23 +1,23 @@
 import type { Server } from "bun";
 import { padEnd } from "lodash";
 import type { SiteEntry } from "../../client/types";
-import { c, dir, initHandler, staticFileHandler } from "../../server";
+import {
+  c,
+  dir,
+  initHandler,
+  staticFileHandler,
+  type onFetch,
+} from "../../server";
 import { initEnv } from "./env";
 
 export const initProd = async ({
-  index,
   loadApi,
   loadModels,
   onFetch,
 }: {
-  index: any;
   loadModels: () => Promise<any>;
   loadApi: () => Promise<any>;
-  onFetch?: (arg: {
-    url: URL;
-    req: Request;
-    server: Server;
-  }) => Promise<Response> | Response;
+  onFetch?: onFetch;
 }) => {
   const { apiConfig, isDev, isLiveReload, pageConfig } = initEnv();
   if (isDev) return null;
@@ -64,7 +64,9 @@ export const initProd = async ({
   });
 
   // Choose default port - either defined in an environment variable or use 3000
-  const port = process.env.PORT ? parseInt(process.env.PORT) : 3000;
+  const port = process.env.PORT
+    ? parseInt(process.env.PORT)
+    : config?.backend?.prodPort || 3000;
 
   // Choose default site (first site in config if no specific default is provided)
   const defaultSiteName =

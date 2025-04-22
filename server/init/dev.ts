@@ -6,7 +6,7 @@ import { buildPages, watchPage } from "../page/watch";
 import { spaHandler } from "../util/spa-handler";
 import { staticFileHandler } from "../util/static-handler";
 import { initEnv } from "./env";
-import { initHandler } from "./handler";
+import { initHandler, type onFetch } from "./handler";
 
 export const initDev = async ({
   index,
@@ -17,13 +17,10 @@ export const initDev = async ({
   index: any;
   loadModels: () => Promise<any>;
   loadApi: () => Promise<any>;
-  onFetch?: (arg: {
-    url: URL;
-    req: Request;
-    server: Server;
+  onFetch?: onFetch<{
     name: string;
     servers: Record<string, Server>;
-  }) => Promise<Response> | Response;
+  }>;
 }) => {
   const { apiConfig, isDev, isLiveReload, pageConfig } = initEnv();
 

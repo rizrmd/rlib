@@ -1,9 +1,17 @@
-import { type BunRequest, type RouterTypes } from "bun";
+import { type BunRequest, type RouterTypes, type Server } from "bun";
 import { join } from "path";
 import { defineDB } from "../db/define";
 import type { ModelDefinition } from "../db/types-gen";
 import { dir } from "../util/dir";
 import type { SiteConfig } from "../../client";
+
+export type onFetch<T extends object = {}> = (
+  arg: {
+    url: URL;
+    req: Request;
+    server: Server;
+  } & Partial<T>
+) => Promise<Response | void> | Response | void;
 
 export const initHandler = async <
   T extends { [K in string]: ModelDefinition<K> }
