@@ -11,7 +11,14 @@ export const defineDB = async <T extends { [K in string]: ModelDefinition<K> }>(
   const db = {} as ModelOperations<T>;
 
   const sql = new SQL({ url });
+  const timeout = setTimeout(() => {
+    console.error(
+      "Database connection timed out (> 5s). Please check your DATABASE_URL."
+    );
+    process.exit(1);
+  }, 5000);
   await sql.connect();
+  clearTimeout(timeout);
 
   // Create operations for each model
   for (const modelName of Object.keys(models) as Array<keyof T>) {
