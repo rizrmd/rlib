@@ -548,6 +548,19 @@ function buildConditionStr(
   // Create properly quoted column reference
   const columnRef = `"${tableName}"."${field}"`;
 
+  // Special handling for NULL values
+  if (value === null) {
+    switch (operator) {
+      case "eq":
+        return `${columnRef} IS NULL`;
+      case "neq":
+        return `${columnRef} IS NOT NULL`;
+      default:
+        // Other operators don't make sense with NULL
+        return `${columnRef} IS NULL`;
+    }
+  }
+
   switch (operator) {
     case "eq":
       return `${columnRef} = ${formatValue(value)}`;
