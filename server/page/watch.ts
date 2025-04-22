@@ -1,4 +1,4 @@
-import { readdirSync, watch, writeFileSync } from "fs";
+import { readdirSync, readFileSync, watch, writeFileSync } from "fs";
 import { join, parse } from "path";
 import { dir } from "../util/dir";
 
@@ -31,14 +31,31 @@ export const buildPages = async (opt: {
         Object.assign(routes, generateRoutes(path, join(base, file.name)));
       } else {
         const { name, ext } = parse(file.name);
+
         if (ext === ".tsx") {
-          let route = join(base, name === "index" ? "." : name).replace(
-            /\\/g,
-            "/"
-          );
-          route =
-            route === "." ? "/" : route.startsWith("/") ? route : `/${route}`;
-          routes[route] = `@/pages${route === "/" ? "" : route}`;
+          const bun = Bun.file(join(dir, file.name));
+
+          if (bun.size === 0) {
+            writeFileSync(
+              join(dir, file.name),
+              `\
+export default () => {
+  return <>Hello ${file.name}</>;
+};
+`
+            );
+          }
+
+          const content = readFileSync(join(dir, file.name), "utf-8");
+          if (content && content.includes("export default")) {
+            let route = join(base, name === "index" ? "." : name).replace(
+              /\\/g,
+              "/"
+            );
+            route =
+              route === "." ? "/" : route.startsWith("/") ? route : `/${route}`;
+            routes[route] = `@/pages${route === "/" ? "" : route}`;
+          }
         }
       }
     }
