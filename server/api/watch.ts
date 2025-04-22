@@ -101,7 +101,7 @@ export default defineAPI({
 
       // Import path should be relative to the output file directory
       const importPath = path
-        .relative(path.dirname(paths.out), path.join(paths.in, relativePath))
+        .relative(path.dirname(paths.out), relativePath)
         .replace(/\\/g, "/");
 
       apiImports.push(
