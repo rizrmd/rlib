@@ -44,6 +44,7 @@ export const initDev = async ({
       maxAge: isDev ? 0 : 86400, // 1 day cache in production
     });
 
+
     for (const [name, site] of Object.entries(config.sites)) {
       servers[name] = Bun.serve({
         port: site.devPort,

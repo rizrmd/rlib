@@ -79,7 +79,7 @@ export type WhereCondition<T> = {
     ? T[]
     : K extends "like" | "ilike"
     ? string
-    : T;
+    : T | null;
 } & (T extends string
   ? {
       [K in StringOperator]?: string;
@@ -90,7 +90,8 @@ export type WhereCondition<T> = {
 export type WhereFields<M, N extends keyof M> = {
   [F in ModelField<M, N>]?:
     | WhereCondition<FieldValue<M, N, F>>
-    | FieldValue<M, N, F>;
+    | FieldValue<M, N, F>
+    | null;
 } & {
   [R in RelationField<M, N>]?: WhereFields<M, RelationTargetInfo<M, N, R>>;
 } & {
