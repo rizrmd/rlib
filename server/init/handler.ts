@@ -1,11 +1,11 @@
 import { type BunRequest, type RouterTypes } from "bun";
 import { join } from "path";
-import { defineDB } from "./db/define";
-import type { ModelDefinition } from "./db/types-gen";
-import { dir } from "./util/dir";
-import type { SiteConfig } from "../client";
+import { defineDB } from "../db/define";
+import type { ModelDefinition } from "../db/types-gen";
+import { dir } from "../util/dir";
+import type { SiteConfig } from "../../client";
 
-export const init = async <
+export const initHandler = async <
   T extends { [K in string]: ModelDefinition<K> }
 >(opt: {
   root: string;
