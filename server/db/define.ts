@@ -99,18 +99,21 @@ export const defineOracleDB = async <
  * Define a database connection based on the provided URL or config
  * This function detects the database type and uses the appropriate driver
  * @param models The model definitions
- * @param connectionInfo Connection URL (PostgreSQL) or Oracle connection string (format: "User Id=x;Password=y;Data Source=z")
+ * @param connectionInfo Connection URL PostgreSQL or Oracle connection string (format: "User Id=x;Password=y;Data Source=z")
  * @returns A model operations object for interacting with the database
  */
 export const defineDB = async <T extends { [K in string]: ModelDefinition<K> }>(
   models: T,
-  connectionInfo: string
+  connectionInfo?: string
 ) => {
+  if (!connectionInfo) {
+    return null;
+  }
   // Check if the connectionInfo is an Oracle connection string
   if (connectionInfo.includes("User Id=") || connectionInfo.includes("user=")) {
     // Parse Oracle connection string
     const parseOracleConnectionString = (connStr: string) => {
-      const config: { 
+      const config: {
         user: string;
         password: string;
         connectString: string;
@@ -120,14 +123,14 @@ export const defineDB = async <T extends { [K in string]: ModelDefinition<K> }>(
         password: "",
         connectString: "",
       };
-      
+
       // Split by semicolons and process each key-value pair
       const parts = connStr.split(";");
       for (const part of parts) {
-        const [key, value] = part.split("=").map(s => s.trim());
-        
+        const [key, value] = part.split("=").map((s) => s.trim());
+
         if (!key || !value) continue;
-        
+
         // Map to proper configuration keys
         if (key.toLowerCase() === "user id" || key.toLowerCase() === "user") {
           config.user = value;
@@ -140,10 +143,10 @@ export const defineDB = async <T extends { [K in string]: ModelDefinition<K> }>(
           config[key] = value;
         }
       }
-      
+
       return config;
     };
-    
+
     const oracleConfig = parseOracleConnectionString(connectionInfo);
     return defineOracleDB(models, oracleConfig);
   } else {
