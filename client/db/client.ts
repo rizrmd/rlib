@@ -1,5 +1,5 @@
-export const dbClient = (window: any) => {
-  window.db = new Proxy(
+export const dbClient = (arg: { bind: any; url: string }) => {
+  arg.bind.db = new Proxy(
     {},
     {
       get(target, table, receiver) {
@@ -8,8 +8,12 @@ export const dbClient = (window: any) => {
           {
             get(target, method, receiver) {
               return async (...args: []) => {
-                console.log(table, method, args);
-                return null;
+                const res = await fetch(arg.url, {
+                  method: "POST",
+                  body: JSON.stringify({ table, method, args }),
+                });
+
+                return await res.json();
               };
             },
           }
