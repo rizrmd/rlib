@@ -1,6 +1,7 @@
 export type SiteConfig = {
-  backend: {orm: "rlib" | "prisma", prodPort: number}
+  backend: { prodPort: number };
   sites: Record<string, SiteEntry>;
+  db?: { skip_tables?: string[] };
 };
 
 export type SiteEntry = { devPort: number; domains?: string[] };

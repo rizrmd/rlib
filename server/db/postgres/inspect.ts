@@ -396,31 +396,35 @@ export async function inspectTable(
 }
 
 /**
- * Inspect all tables in the database and generate formatted model definitions
- * @returns Record of table names to their formatted model definitions
+ * Check if a table should be skipped based on wildcard patterns
+ * @param tableName Name of the table
+ * @param skipPatterns Array of wildcard patterns
+ * @returns True if the table matches any of the patterns, false otherwise
  */
-export async function inspectAll(
-  sql: Bun.SQL
-): Promise<Record<string, string>> {
-  const tables = await getTables(sql);
-  const results: Record<string, string> = {};
-
-  // Process each table to generate its model definition
-  for (const tableName of tables) {
-    results[tableName] = await inspectTable(sql, tableName);
-  }
-
-  return results;
+function shouldSkipTable(tableName: string, skipPatterns: string[]): boolean {
+  return skipPatterns.some((pattern) => {
+    const regex = new RegExp(
+      "^" +
+        pattern
+          .replace(/\*/g, ".*")
+          .replace(/\?/g, ".") +
+        "$"
+    );
+    return regex.test(tableName);
+  });
 }
 
 /**
  * Inspect all tables in the database and generate formatted model definitions with progress tracking
+ * @param sql Bun SQL instance
  * @param progressCallback Optional callback function to track progress
+ * @param skipPatterns Optional array of wildcard patterns for tables to skip
  * @returns Record of table names to their formatted model definitions
  */
 export async function inspectAllWithProgress(
   sql: Bun.SQL,
-  progressCallback?: (tableName: string, index: number, total: number) => void
+  progressCallback?: (tableName: string, index: number, total: number) => void,
+  skipPatterns?: string[]
 ): Promise<Record<string, string>> {
   const tables = await getTables(sql);
   const results: Record<string, string> = {};
@@ -430,6 +434,15 @@ export async function inspectAllWithProgress(
   for (let i = 0; i < tables.length; i++) {
     const tableName = tables[i];
     if (tableName) {
+      // Skip tables that match any of the skip patterns
+      if (skipPatterns && shouldSkipTable(tableName, skipPatterns)) {
+        if (progressCallback) {
+          // Still call the progress callback so the counter advances
+          progressCallback(tableName, i, total);
+        }
+        continue;
+      }
+
       if (progressCallback) {
         progressCallback(tableName, i, total);
       }
@@ -442,14 +455,17 @@ export async function inspectAllWithProgress(
 
 /**
  * Inspect all tables in the database in parallel and generate formatted model definitions with progress tracking
+ * @param sql Bun SQL instance
  * @param concurrency Number of parallel operations to run (defaults to 4)
  * @param progressCallback Optional callback function to track progress
+ * @param skipPatterns Optional array of wildcard patterns for tables to skip
  * @returns Record of table names to their formatted model definitions
  */
 export async function inspectAllWithProgressParallel(
   sql: Bun.SQL,
   concurrency: number = 4,
-  progressCallback?: (tableName: string, index: number, total: number) => void
+  progressCallback?: (tableName: string, index: number, total: number) => void,
+  skipPatterns?: string[]
 ): Promise<Record<string, string>> {
   const tables = await getTables(sql);
   const results: Record<string, string> = {};
@@ -464,6 +480,15 @@ export async function inspectAllWithProgressParallel(
     const batchPromises = batch.map(async (tableName, batchIndex) => {
       if (!tableName) return;
       
+      // Skip tables that match any of the skip patterns
+      if (skipPatterns && shouldSkipTable(tableName, skipPatterns)) {
+        if (progressCallback) {
+          // Still call the progress callback so the counter advances
+          progressCallback(tableName, i + batchIndex, total);
+        }
+        return null; // Return null to indicate this was skipped
+      }
+
       const tableResult = await inspectTable(sql, tableName);
       
       // Update progress after each table is processed

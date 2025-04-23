@@ -101,68 +101,248 @@ async function runInspect(
   console.log("Inspecting database tables...");
 
   try {
-    const sql = new SQL({ url: process.env.DATABASE_URL });
+    const dbUrl = process.env.DATABASE_URL;
 
-    if (!options.parallel)
-      console.log("Using sequential processing (--sequential)");
-
-    const startTime = Date.now();
-
-    // Track progress with a counter instead of individual table names
-    let processedCount = 0;
-    const progressCallback = (
-      _tableName: string,
-      _index: number,
-      total: number
-    ) => {
-      processedCount++;
-      // Update progress on the same line to reduce verbosity
-      process.stdout.write(
-        `\rProcessing tables: ${processedCount}/${total} [${Math.round(
-          (processedCount / total) * 100
-        )}%]`
-      );
-    };
-
-    // Use either parallel or sequential inspection based on options
-    const results = options.parallel
-      ? await inspectAllWithProgressParallel(
-          sql,
-          options.concurrency,
-          progressCallback
-        )
-      : await inspectAllWithProgress(sql, progressCallback);
-
-    const endTime = Date.now();
-    const duration = (endTime - startTime) / 1000;
-
-    const tableNames = Object.keys(results);
-    // Clear the progress line and move to next line
-    process.stdout.write("\r\n");
-    console.log(
-      `Processed ${tableNames.length} tables. Generated in ${duration.toFixed(
-        2
-      )} seconds.`
-    );
-
-    // Clean the output directory before writing new models
-    await cleanModelsDirectory(outputPath);
-
-    // Write model files without logging each one
-    for (const [tableName, modelDef] of Object.entries(results)) {
-      await writeModelFile(
-        outputPath,
-        tableName,
-        modelImportStatement + modelDef
-      );
+    if (!dbUrl) {
+      throw new Error("DATABASE_URL environment variable is not set");
     }
 
-    // Generate the index.ts file
-    await generateIndexFile(outputPath, tableNames);
-    
-    console.log(
-      `${tableNames.length} model(s) written in ${outputPath}`
-    );
+    // Check for site config to get skip_tables patterns
+    let skipTables: string[] = [];
+    try {
+      // Try multiple potential config file locations
+      const configLocations = [
+        join(process.cwd(), "site-config.json"),
+        join(process.cwd(), "site.config.json"),
+        join(process.cwd(), "config.json"),
+        join(process.cwd(), ".config", "site.json"),
+        join(process.cwd(), "config", "site.json"),
+      ];
+
+      let siteConfig;
+
+      // Try to find and load the site config from any of the possible locations
+      for (const configPath of configLocations) {
+        if (existsSync(configPath)) {
+          console.log(`Found config file: ${configPath}`);
+          siteConfig = require(configPath);
+          break;
+        }
+      }
+
+      // If no config file found, try to check for SiteConfig in the environment
+      if (!siteConfig && process.env.SITE_CONFIG) {
+        try {
+          siteConfig = JSON.parse(process.env.SITE_CONFIG);
+        } catch (err) {
+          console.warn(
+            "Failed to parse SITE_CONFIG environment variable:",
+            err
+          );
+        }
+      }
+
+      // Extract skip_tables patterns from the config
+      if (
+        siteConfig?.db?.skip_tables &&
+        Array.isArray(siteConfig.db.skip_tables)
+      ) {
+        skipTables = siteConfig.db.skip_tables;
+        console.log(
+          `Found ${skipTables.length} table patterns to skip in config`
+        );
+      }
+    } catch (err) {
+      console.warn("Failed to load site configuration:", err);
+    }
+
+    // Detect if the connection string is Oracle format
+    const isOracle =
+      dbUrl.includes("User Id=") ||
+      dbUrl.includes("user=") ||
+      dbUrl.includes("Data Source=");
+
+    let sql;
+    if (isOracle) {
+      console.log("Detected Oracle database connection");
+      // For Oracle, we need to parse the connection string and use the Oracle client
+      // Import modules dynamically to avoid loading unnecessary dependencies
+      const { createOracleClient } = await import("./oracle");
+
+      // Parse Oracle connection string
+      const parseOracleConnectionString = (connStr: string) => {
+        const config: {
+          user: string;
+          password: string;
+          connectString: string;
+          [key: string]: any;
+        } = {
+          user: "",
+          password: "",
+          connectString: "",
+        };
+
+        // Split by semicolons and process each key-value pair
+        const parts = connStr.split(";");
+        for (const part of parts) {
+          const [key, value] = part.split("=").map((s) => s.trim());
+
+          if (!key || !value) continue;
+
+          // Map to proper configuration keys
+          if (key.toLowerCase() === "user id" || key.toLowerCase() === "user") {
+            config.user = value;
+          } else if (key.toLowerCase() === "password") {
+            config.password = value;
+          } else if (key.toLowerCase() === "data source") {
+            config.connectString = value;
+          } else {
+            // Add any other parameters as is
+            config[key] = value;
+          }
+        }
+
+        return config;
+      };
+
+      const oracleConfig = parseOracleConnectionString(dbUrl);
+      const oracleClient = createOracleClient({}, oracleConfig);
+      await oracleClient.initialize();
+
+      // For the inspection flow, we'll use the Oracle client's inspect methods
+      if (!options.parallel)
+        console.log("Using sequential processing (--sequential)");
+
+      const startTime = Date.now();
+
+      // Track progress with a counter
+      let processedCount = 0;
+      const progressCallback = (
+        _tableName: string,
+        _index: number,
+        total: number
+      ) => {
+        processedCount++;
+        process.stdout.write(
+          `\rProcessing tables: ${processedCount}/${total} [${Math.round(
+            (processedCount / total) * 100
+          )}%]`
+        );
+      };
+
+      // Use Oracle's inspect methods
+      const results = options.parallel
+        ? await oracleClient.inspect.inspectAllWithProgressParallel(
+            undefined,
+            options.concurrency,
+            progressCallback,
+            skipTables.length > 0 ? skipTables : undefined
+          )
+        : await oracleClient.inspect.inspectAllWithProgress(
+            undefined,
+            progressCallback,
+            skipTables.length > 0 ? skipTables : undefined
+          );
+
+      const endTime = Date.now();
+      const duration = (endTime - startTime) / 1000;
+
+      const tableNames = Object.keys(results);
+      process.stdout.write("\r\n");
+      console.log(
+        `Processed ${tableNames.length} tables. Generated in ${duration.toFixed(
+          2
+        )} seconds.`
+      );
+
+      // Clean the output directory before writing new models
+      await cleanModelsDirectory(outputPath);
+
+      // Write model files
+      for (const [tableName, modelDef] of Object.entries(results)) {
+        await writeModelFile(
+          outputPath,
+          tableName,
+          modelImportStatement + modelDef
+        );
+      }
+
+      // Generate the index.ts file
+      await generateIndexFile(outputPath, tableNames);
+
+      console.log(`${tableNames.length} model(s) written in ${outputPath}`);
+
+      // Close the Oracle client connection pool
+      await oracleClient.close();
+    } else {
+      // PostgreSQL connection
+      console.log("Detected PostgreSQL database connection");
+      sql = new SQL({ url: dbUrl });
+
+      if (!options.parallel)
+        console.log("Using sequential processing (--sequential)");
+
+      const startTime = Date.now();
+
+      // Track progress with a counter instead of individual table names
+      let processedCount = 0;
+      const progressCallback = (
+        _tableName: string,
+        _index: number,
+        total: number
+      ) => {
+        processedCount++;
+        // Update progress on the same line to reduce verbosity
+        process.stdout.write(
+          `\rProcessing tables: ${processedCount}/${total} [${Math.round(
+            (processedCount / total) * 100
+          )}%]`
+        );
+      };
+
+      // Use either parallel or sequential inspection based on options
+      const results = options.parallel
+        ? await inspectAllWithProgressParallel(
+            sql,
+            options.concurrency,
+            progressCallback,
+            skipTables.length > 0 ? skipTables : undefined
+          )
+        : await inspectAllWithProgress(
+            sql,
+            progressCallback,
+            skipTables.length > 0 ? skipTables : undefined
+          );
+
+      const endTime = Date.now();
+      const duration = (endTime - startTime) / 1000;
+
+      const tableNames = Object.keys(results);
+      // Clear the progress line and move to next line
+      process.stdout.write("\r\n");
+      console.log(
+        `Processed ${tableNames.length} tables. Generated in ${duration.toFixed(
+          2
+        )} seconds.`
+      );
+
+      // Clean the output directory before writing new models
+      await cleanModelsDirectory(outputPath);
+
+      // Write model files without logging each one
+      for (const [tableName, modelDef] of Object.entries(results)) {
+        await writeModelFile(
+          outputPath,
+          tableName,
+          modelImportStatement + modelDef
+        );
+      }
+
+      // Generate the index.ts file
+      await generateIndexFile(outputPath, tableNames);
+
+      console.log(`${tableNames.length} model(s) written in ${outputPath}`);
+    }
   } catch (error) {
     console.error("Error inspecting database:", error);
     process.exit(1);

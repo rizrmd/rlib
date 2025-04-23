@@ -4,6 +4,20 @@ import type { ModelDefinition } from "../types-gen";
 import type { ModelOperations } from "../types-lib";
 import { createFindMany, createFindFirst } from "./query-read";
 import { createCreate, createUpdate } from "./query-write";
+import {
+  addInspectMethodsToClient,
+  inspectAll,
+  inspectAllWithProgress,
+  inspectAllWithProgressParallel,
+  inspectTable,
+} from "./inspect";
+
+/**
+ * Utility type that removes the first argument from a function signature
+ */
+type RemoveFirstArg<F> = F extends (arg1: any, ...args: infer R) => infer T
+  ? (...args: R) => T
+  : never;
 
 /**
  * Oracle database client implementation.
@@ -13,6 +27,23 @@ import { createCreate, createUpdate } from "./query-write";
 export class OracleClient<M extends Record<string, ModelDefinition<string>>> {
   private connectionPool: oracledb.Pool | null = null;
   private models: M;
+
+  /**
+   * Add inspect methods to client
+   */
+  inspect: {
+    getTables: (schema?: string) => Promise<string[]>;
+    getTableColumns: (tableName: string, schema?: string) => Promise<any[]>;
+    getAllColumns: (schema?: string) => Promise<Record<string, any[]>>;
+    getTableRelationships: (schema?: string) => Promise<any[]>;
+    getDatabaseStructure: (schema?: string) => Promise<any>;
+    inspectTable: RemoveFirstArg<typeof inspectTable>;
+    inspectAll: RemoveFirstArg<typeof inspectAll>;
+    inspectAllWithProgress: RemoveFirstArg<typeof inspectAllWithProgress>;
+    inspectAllWithProgressParallel: RemoveFirstArg<
+      typeof inspectAllWithProgressParallel
+    >;
+  } = {} as any;
 
   /**
    * Constructor for the Oracle database client
@@ -35,7 +66,7 @@ export class OracleClient<M extends Record<string, ModelDefinition<string>>> {
 
     // Configure oracledb to return objects instead of arrays by default
     oracledb.outFormat = oracledb.OUT_FORMAT_OBJECT;
-    
+
     // Enable support for returning auto-increment values (RETURNING INTO)
     oracledb.autoCommit = false;
   }
@@ -56,7 +87,7 @@ export class OracleClient<M extends Record<string, ModelDefinition<string>>> {
       // Merge with user config
       const poolConfig = {
         ...defaultPoolConfig,
-        ...this.config
+        ...this.config,
       };
 
       this.connectionPool = await oracledb.createPool({
@@ -69,7 +100,8 @@ export class OracleClient<M extends Record<string, ModelDefinition<string>>> {
         poolTimeout: poolConfig.poolTimeout,
       });
 
-      console.log("Oracle connection pool initialized successfully");
+      // Initialize inspect methods
+      addInspectMethodsToClient(this);
     } catch (error) {
       console.error("Failed to initialize Oracle connection pool:", error);
       throw error;
@@ -122,10 +154,30 @@ export class OracleClient<M extends Record<string, ModelDefinition<string>>> {
 
     // Create operations for the model
     return {
-      findMany: createFindMany(modelName, modelDef, this.models, this.connectionPool),
-      findFirst: createFindFirst(modelName, modelDef, this.models, this.connectionPool),
-      create: createCreate(modelName, modelDef, this.models, this.connectionPool),
-      update: createUpdate(modelName, modelDef, this.models, this.connectionPool),
+      findMany: createFindMany(
+        modelName,
+        modelDef,
+        this.models,
+        this.connectionPool
+      ),
+      findFirst: createFindFirst(
+        modelName,
+        modelDef,
+        this.models,
+        this.connectionPool
+      ),
+      create: createCreate(
+        modelName,
+        modelDef,
+        this.models,
+        this.connectionPool
+      ),
+      update: createUpdate(
+        modelName,
+        modelDef,
+        this.models,
+        this.connectionPool
+      ),
     };
   }
 
@@ -146,7 +198,7 @@ export class OracleClient<M extends Record<string, ModelDefinition<string>>> {
     for (const modelName in this.models) {
       if (Object.prototype.hasOwnProperty.call(this.models, modelName)) {
         const modelDef = this.models[modelName];
-        operations[modelName as keyof M] = {
+        (operations as any)[modelName as keyof M] = {
           findMany: createFindMany(
             modelName as keyof M,
             modelDef,
@@ -195,12 +247,12 @@ export class OracleClient<M extends Record<string, ModelDefinition<string>>> {
     try {
       connection = await this.connectionPool.getConnection();
       const result = await connection.execute(sql, params || []);
-      
+
       // Return the rows as an array of objects
       if (result && result.rows) {
         return result.rows as T[];
       }
-      
+
       return [];
     } finally {
       if (connection) {
@@ -234,10 +286,10 @@ export class OracleClient<M extends Record<string, ModelDefinition<string>>> {
     let connection;
     try {
       connection = await this.connectionPool.getConnection();
-      
+
       // Start transaction
       await connection.execute("BEGIN");
-      
+
       // Create transaction object
       const trx = {
         execute: async <R = any>(sql: string, params?: any[]): Promise<R[]> => {
@@ -254,13 +306,13 @@ export class OracleClient<M extends Record<string, ModelDefinition<string>>> {
           await connection!.execute("ROLLBACK");
         },
       };
-      
+
       // Execute the callback with the transaction object
       const result = await callback(trx);
-      
+
       // Commit if no errors were thrown
       await trx.commit();
-      
+
       return result;
     } catch (error) {
       // Rollback on error

@@ -176,49 +176,123 @@ FROM ${formatIdentifier(tableName)} ${formatIdentifier(String(modelName))}`;
     try {
       connection = await connectionPool.getConnection();
       
-      // Execute the query
-      const result = await connection.execute(queryString);
-      
-      // Process results to match selected fields structure
-      let rows: any[] = [];
-      if (result.rows) {
-        rows = result.rows as any[];
+      // Try with the original table name
+      try {
+        const result = await connection.execute(queryString);
+        
+        if (result.rows && result.rows.length > 0) {
+          let data = result.rows[0];
+          
+          if (postProcess) {
+            data = postProcess(data);
+          }
+          
+          if (showDebug) {
+            return {
+              data,
+              sql: queryString,
+            };
+          } else {
+            return data;
+          }
+        } else {
+          if (showDebug) {
+            return {
+              data: null,
+              sql: queryString,
+            };
+          } else {
+            return null;
+          }
+        }
+      } catch (err) {
+        // If we get a table not found error, try with uppercase table name
+        if (err instanceof Error && err.message.includes('ORA-00942')) {
+          // Try with uppercase table name as fallback
+          const upperCaseQueryString = queryString.replace(
+            `FROM ${formatIdentifier(tableName)}`,
+            `FROM ${formatIdentifier(tableName.toUpperCase())}`
+          );
+          
+          try {
+            const result = await connection.execute(upperCaseQueryString);
+            
+            if (result.rows && result.rows.length > 0) {
+              let data = result.rows[0];
+              
+              if (postProcess) {
+                data = postProcess(data);
+              }
+              
+              if (showDebug) {
+                return {
+                  data,
+                  sql: upperCaseQueryString,
+                };
+              } else {
+                return data;
+              }
+            }
+          } catch (upperCaseErr) {
+            // If uppercase also fails, try without quotes
+            try {
+              const unquotedQueryString = queryString.replace(
+                `FROM ${formatIdentifier(tableName)}`,
+                `FROM ${tableName.toUpperCase()}`
+              );
+              
+              const result = await connection.execute(unquotedQueryString);
+              
+              if (result.rows && result.rows.length > 0) {
+                let data = result.rows[0];
+                
+                if (postProcess) {
+                  data = postProcess(data);
+                }
+                
+                if (showDebug) {
+                  return {
+                    data,
+                    sql: unquotedQueryString,
+                  };
+                } else {
+                  return data;
+                }
+              }
+            } catch (unquotedErr) {
+              // Throw the original error if all attempts fail
+              throw err;
+            }
+          }
+        } else {
+          // If it's not a table not found error, rethrow
+          throw err;
+        }
       }
       
-      let final = processResults(rows, modelName, select, models);
-
-      if (postProcess) {
-        final = postProcess(final);
-      }
-
-      // Get the first result or null
-      const firstResult = final.length > 0 ? final[0] : null;
-
-      // Return different result formats based on debug flag
-      if (showDebug) {
-        return {
-          data: firstResult,
-          sql: queryString,
-        };
-      } else {
-        return firstResult;
-      }
-    } catch (err) {
-      // If debug is enabled, return the error and SQL query
+      // If we reach here, no results were found with any table name variation
       if (showDebug) {
         return {
           data: null,
           sql: queryString,
-          error: err instanceof Error ? err.message : String(err),
+        };
+      } else {
+        return null;
+      }
+    } catch (error) {
+      if (showDebug) {
+        return {
+          data: null,
+          error: error instanceof Error ? error.message : String(error),
+          sql: queryString,
         };
       }
-
-      // Otherwise rethrow the error
-      throw err;
+      
+      throw error;
     } finally {
       if (connection) {
         try {
-          await connection.close(); // Release connection back to the pool
+          await connection.close();
         } catch (err) {
           console.error("Error closing Oracle connection:", err);
         }

@@ -194,7 +194,7 @@ export type ModelQueryFirstOptions<
       debug?: boolean;
     }
   : {
-      select: S;
+      select?: S;
       where?: WhereFields<M, N>;
       orderBy?: OrderByClause<M, N>;
       debug?: boolean;
