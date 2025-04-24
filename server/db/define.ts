@@ -48,6 +48,19 @@ export const definePostgresDB = async <
     };
   }
 
+  // Add raw query method to the database object
+  (db as any).rawQuery = async <T = any>(query: string, params?: any[]): Promise<T[]> => {
+    try {
+      // For raw SQL queries, we use sql.unsafe()
+      // This is safe when parameters are provided separately and not directly interpolated
+      const result = await sql.unsafe(query, params || []);
+      return result as unknown as T[];
+    } catch (error) {
+      console.error('Error executing raw SQL query:', error);
+      throw error;
+    }
+  };
+
   return db;
 };
 

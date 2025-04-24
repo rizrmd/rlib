@@ -50,18 +50,18 @@ export const buildAPI = async (config: {
           .replace(/\\/g, "/")
           .split("/");
         const name = fileParts[fileParts.length - 1];
-        const url = `"/api/${fileParts
+        const url = `/api/${fileParts
           .filter((e) => !e.includes("."))
-          .join("/")}"`;
+          .join("/")}`;
 
         const apiTemplate = `import { defineAPI } from "rlib/server";
 
 export default defineAPI({
-  name: "${name}",
-  url: ${url},
+  name: "${url.replaceAll("/", "_").substring(5)}",
+  url: "${url}",
   async handler() {
     const req = this.req!;
-    console.log("route: " + ${url});
+    console.log("route: " + "${url}");
     return {};
   },
 });
@@ -144,8 +144,12 @@ export default defineAPI({
 
   // Add non-domain endpoints wrapped in "_" property
   if (Object.keys(apiEndpoints).length > 0) {
-    apiObjectEntries += `  "_": {\n${regularEndpoints.map((e) => e[0]).join(",\n")}\n  }`;
-    dryObjectEntries += `  "_": {\n${regularEndpoints.map((e) => e[1]).join(",\n")}\n  }`;
+    apiObjectEntries += `  "_": {\n${regularEndpoints
+      .map((e) => e[0])
+      .join(",\n")}\n  }`;
+    dryObjectEntries += `  "_": {\n${regularEndpoints
+      .map((e) => e[1])
+      .join(",\n")}\n  }`;
   }
 
   // Add domain-grouped endpoints
