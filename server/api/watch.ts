@@ -152,15 +152,16 @@ export default defineAPI({
     ]
   );
 
-  if (regularEndpoints) {
-    apiObjectEntries += regularEndpoints.map((e) => e[0]).join(",\n");
-    dryObjectEntries += regularEndpoints.map((e) => e[1]).join(",\n");
+  // Add non-domain endpoints wrapped in "_" property
+  if (Object.keys(apiEndpoints).length > 0) {
+    apiObjectEntries += `  "_": {\n${regularEndpoints.map((e) => e[0]).join(",\n")}\n  }`;
+    dryObjectEntries += `  "_": {\n${regularEndpoints.map((e) => e[1]).join(",\n")}\n  }`;
   }
 
   // Add domain-grouped endpoints
   apiDomainEndpoints.forEach((endpoints, domain) => {
-    // Add a comma if there are regular endpoints
-    if (apiObjectEntries && Object.keys(endpoints).length > 0) {
+    // Add a comma if there are regular endpoints or other domains already added
+    if (apiObjectEntries) {
       apiObjectEntries += ",\n";
       dryObjectEntries += ",\n";
     }
@@ -211,20 +212,36 @@ ${dryObjectEntries}
     dryContent
   );
 
-  for (const domain of apiDomainEndpoints.keys()) {
-    const outfile = dir.path(`frontend:src/lib/gen/api/${domain}.ts`);
-    if (!fs.existsSync(outfile)) {
-      const content = `// Auto-generated file - DO NOT EDIT
+  const outfile = dir.path(`frontend:src/lib/gen/api.ts`);
+  if (!fs.existsSync(outfile)) {
+    const content = `// Auto-generated file - DO NOT EDIT
 
 import { apiClient } from "rlib/client";
 import type { backendApi } from "backend/gen/api";
 import { endpoints } from "backend/gen/api.url";
 
-export const backendApi = apiClient({} as typeof backendApi, endpoints, "${domain}");
+export const api = apiClient({} as typeof backendApi, endpoints, "_");`;
+
+    dir.ensure("frontend:src/lib/gen/api");
+    fs.writeFileSync(outfile, content);
+  }
+
+  if (apiDomainEndpoints.size === 0) {
+    for (const domain of apiDomainEndpoints.keys()) {
+      const outfile = dir.path(`frontend:src/lib/gen/api/${domain}.ts`);
+      if (!fs.existsSync(outfile)) {
+        const content = `// Auto-generated file - DO NOT EDIT
+
+import { apiClient } from "rlib/client";
+import type { backendApi } from "backend/gen/api";
+import { endpoints } from "backend/gen/api.url";
+
+export const api = apiClient({} as typeof backendApi, endpoints, "${domain}");
     `;
 
-      dir.ensure("frontend:src/lib/gen/api");
-      fs.writeFileSync(outfile, content);
+        dir.ensure("frontend:src/lib/gen/api");
+        fs.writeFileSync(outfile, content);
+      }
     }
   }
 };
