@@ -228,7 +228,7 @@ export class OracleClient<M extends Record<string, ModelDefinition<string>>> {
     }
 
     // Add raw query method to the operations object
-    (operations as any).rawQuery = this.raw.bind(this);
+    (operations as any)._rawQuery = this.raw.bind(this);
 
     return operations as ModelOperations<M>;
   }

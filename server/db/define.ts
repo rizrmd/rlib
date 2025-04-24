@@ -40,7 +40,7 @@ export const definePostgresDB = async <
     const modelDef = models[modelName];
 
     // Set up model operations using sql directly
-    db[modelName] = {
+    (db as any)[modelName] = {
       findMany: pgFindMany(modelName, modelDef, models, sql),
       findFirst: pgFindFirst(modelName, modelDef, models, sql),
       create: pgCreate(modelName, modelDef, models, sql),
@@ -49,14 +49,17 @@ export const definePostgresDB = async <
   }
 
   // Add raw query method to the database object
-  (db as any).rawQuery = async <T = any>(query: string, params?: any[]): Promise<T[]> => {
+  (db as any)._rawQuery = async <T = any>(
+    query: string,
+    params?: any[]
+  ): Promise<T[]> => {
     try {
       // For raw SQL queries, we use sql.unsafe()
       // This is safe when parameters are provided separately and not directly interpolated
       const result = await sql.unsafe(query, params || []);
       return result as unknown as T[];
     } catch (error) {
-      console.error('Error executing raw SQL query:', error);
+      console.error("Error executing raw SQL query:", error);
       throw error;
     }
   };
@@ -117,11 +120,8 @@ export const defineOracleDB = async <
  */
 export const defineDB = async <T extends { [K in string]: ModelDefinition<K> }>(
   models: T,
-  connectionInfo?: string
+  connectionInfo: string
 ) => {
-  if (!connectionInfo) {
-    return null;
-  }
   // Check if the connectionInfo is an Oracle connection string
   if (connectionInfo.includes("User Id=") || connectionInfo.includes("user=")) {
     // Parse Oracle connection string
