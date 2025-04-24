@@ -64,7 +64,7 @@ export const dir = {
     };
 
     return getAllFiles(fullPath).map((file) =>
-      file.replace(fullPath + "/", "")
+      file.replace(fullPath + Path.sep, "")
     );
   },
 };

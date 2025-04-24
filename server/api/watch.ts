@@ -45,7 +45,6 @@ export const buildAPI = async (config: {
       // If the file is empty or only contains whitespace, populate it with the template
       if (!fileContent.trim()) {
         // Generate a URL path based on the file path
-        const urlPath = relativePath.replace(/\\/g, "/");
         const fileParts = file
           .substring(0, file.length - 3)
           .replace(/\\/g, "/")
