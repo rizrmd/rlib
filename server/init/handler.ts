@@ -85,7 +85,7 @@ export const initHandler = async <
   for (const [name] of Object.entries(config.sites)) {
     routes[name] = {};
     try {
-      for (const [_, item] of Object.entries(opt.backendApi)) {
+      for (const [_, item] of Object.entries(opt.backendApi._)) {
         if (Array.isArray(item)) {
           const [url, handler] = item as any;
           if (!url.includes(".")) {

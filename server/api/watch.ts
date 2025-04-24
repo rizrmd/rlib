@@ -99,17 +99,7 @@ export default defineAPI({
         .replace(/[^\w_]/g, "_");
 
       // Import path should be relative to the output file directory
-      const importPath =
-        process.platform === "win32"
-          ? path
-              .relative(path.dirname(paths.out), relativePath)
-              .replace(/\\/g, "/")
-          : path
-              .relative(
-                path.dirname(paths.out),
-                path.join(paths.in, relativePath)
-              )
-              .replace(/\\/g, "/");
+      const importPath = `backend/src/api/${relativePath}`.replace(/\\/g, "/");
 
       apiImports.push(
         `import { default as ${importName} } from "${importPath}";`

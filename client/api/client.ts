@@ -24,7 +24,7 @@ export const apiClient = <T extends ApiDefinitions, K extends keyof T>(
 
           const result = await fetch(url, {
             method: "POST",
-            body: JSON.stringify({ domain, name: p, args }),
+            body: JSON.stringify(args),
           });
           if (!result.ok) {
             throw new Error("Request failed");
