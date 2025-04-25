@@ -7,7 +7,7 @@ import { spaHandler } from "../util/spa-handler";
 import { staticFileHandler } from "../util/static-handler";
 import { initEnv } from "./env";
 import { initHandler, type onFetch } from "./handler";
-import { initBaseUrlFile } from "./base-url";
+import { initBaseUrlFile } from "./base-file";
 
 export const initDev = async ({
   index,
