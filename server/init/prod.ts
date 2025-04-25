@@ -2,6 +2,8 @@ import type { Server } from "bun";
 import { padEnd } from "lodash";
 import type { SiteEntry } from "../../client/types";
 import {
+  buildAPI,
+  buildPages,
   c,
   dir,
   initHandler,
@@ -9,6 +11,7 @@ import {
   type onFetch,
 } from "../../server";
 import { initEnv } from "./env";
+import { initBaseUrlFile } from "./base-url";
 
 export const initProd = async ({
   loadApi,
@@ -21,6 +24,10 @@ export const initProd = async ({
 }) => {
   const { apiConfig, isDev, isLiveReload, pageConfig } = initEnv();
   if (isDev) return null;
+
+  await initBaseUrlFile();
+  await buildAPI(apiConfig);
+  await buildPages(pageConfig);
 
   const { config, routes } = await initHandler({
     root: process.cwd(),

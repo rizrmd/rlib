@@ -7,6 +7,7 @@ import { spaHandler } from "../util/spa-handler";
 import { staticFileHandler } from "../util/static-handler";
 import { initEnv } from "./env";
 import { initHandler, type onFetch } from "./handler";
+import { initBaseUrlFile } from "./base-url";
 
 export const initDev = async ({
   index,
@@ -26,6 +27,7 @@ export const initDev = async ({
 
   if (isDev) {
     if (!isLiveReload) {
+      await initBaseUrlFile();
       await buildAPI(apiConfig);
       await buildPages(pageConfig);
     }

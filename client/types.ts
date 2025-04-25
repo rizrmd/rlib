@@ -4,4 +4,8 @@ export type SiteConfig = {
   db?: { skip_tables?: string[] };
 };
 
-export type SiteEntry = { devPort: number; domains?: string[] };
+export type SiteEntry = {
+  devPort: number;
+  domains?: string[];
+  isDefault?: boolean;
+};
