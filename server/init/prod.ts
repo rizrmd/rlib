@@ -11,7 +11,7 @@ import {
   type onFetch,
 } from "../../server";
 import { initEnv } from "./env";
-import { initBaseUrlFile } from "./base-file";
+import { initBaseFile } from "./base-file";
 
 export const initProd = async ({
   loadApi,
@@ -25,7 +25,7 @@ export const initProd = async ({
   const { apiConfig, isDev, isLiveReload, pageConfig } = initEnv();
   if (isDev) return null;
 
-  await initBaseUrlFile();
+  await initBaseFile();
   await buildAPI(apiConfig);
   await buildPages(pageConfig);
 
