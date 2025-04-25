@@ -7,5 +7,8 @@ export type SiteConfig = {
 export type SiteEntry = {
   devPort: number;
   domains?: string[];
+  mobile?: {
+    enabled?: boolean;
+  };
   isDefault?: boolean;
 };

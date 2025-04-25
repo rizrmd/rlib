@@ -5,11 +5,12 @@ import * as path from "path";
 
 export const buildAPI = async (config: {
   input_dir: string;
-  out_file: string;
+  export_file: string;
+  frontend_out: string[]
 }) => {
   const paths = {
     in: dir.path(config.input_dir),
-    out: dir.path(config.out_file),
+    out: dir.path(config.export_file),
   };
 
   // Get all files in input directory recursively
@@ -206,9 +207,16 @@ ${dryObjectEntries}
     dryContent
   );
 
-  const outfile = dir.path(`frontend:src/lib/gen/api.ts`);
-  if (!fs.existsSync(outfile)) {
-    const content = `// Auto-generated file - DO NOT EDIT
+  // Process all frontend output paths from the config
+  const frontendPaths = config.frontend_out || [];
+  
+  // Generate the default API client file for each frontend output path
+  for (const frontendPath of frontendPaths) {
+    const outfile = dir.path(frontendPath);
+    const outDir = path.dirname(outfile);
+    
+    if (!fs.existsSync(outfile)) {
+      const content = `// Auto-generated file - DO NOT EDIT
 
 import { apiClient } from "rlib/client";
 import type { backendApi } from "backend/gen/api";
@@ -216,34 +224,40 @@ import { endpoints } from "backend/gen/api.url";
 
 export const api = apiClient({} as typeof backendApi, endpoints, "_");`;
 
-    dir.ensure("frontend:src/lib/gen/api");
-    fs.writeFileSync(outfile, content);
+      dir.ensure(outDir);
+      fs.writeFileSync(outfile, content);
+    }
   }
 
-  if (apiDomainEndpoints.size === 0) {
+  // Generate domain-specific API client files if domains exist
+  if (apiDomainEndpoints.size > 0) {
     for (const domain of apiDomainEndpoints.keys()) {
-      const outfile = dir.path(`frontend:src/lib/gen/api/${domain}.ts`);
-      if (!fs.existsSync(outfile)) {
-        const content = `// Auto-generated file - DO NOT EDIT
+      for (const frontendPath of frontendPaths) {
+        // Create domain-specific file in the same directory as the main API file
+        const basePath = path.dirname(frontendPath);
+        const outfile = dir.path(`${basePath}/${domain}.ts`);
+        
+        if (!fs.existsSync(outfile)) {
+          const content = `// Auto-generated file - DO NOT EDIT
 
 import { apiClient } from "rlib/client";
 import type { backendApi } from "backend/gen/api";
 import { endpoints } from "backend/gen/api.url";
 
-export const api = apiClient({} as typeof backendApi, endpoints, "${domain}");
-    `;
+export const api = apiClient({} as typeof backendApi, endpoints, "${domain}");`;
 
-        dir.ensure("frontend:src/lib/gen/api");
-        fs.writeFileSync(outfile, content);
+          dir.ensure(path.dirname(outfile));
+          fs.writeFileSync(outfile, content);
+        }
       }
     }
   }
 };
 
-export const watchAPI = (config: { input_dir: string; out_file: string }) => {
+export const watchAPI = (config: Parameters<typeof buildAPI>[0]) => {
   const paths = {
     in: dir.path(config.input_dir),
-    out: dir.path(config.out_file),
+    out: dir.path(config.export_file),
   };
 
   const timeout = { build: null as any };

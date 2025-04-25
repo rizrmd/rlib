@@ -1,6 +1,10 @@
+import { rimraf } from "rimraf";
 import { dir } from "../util/dir";
 
 export const initBaseFile = async () => {
+  if (dir.exists("frontend:src/lib/gen")) {
+    rimraf(dir.path("frontend:src/lib/gen"));
+  }
   dir.ensure("frontend:src/lib/gen");
 
   await Bun.file(dir.path("frontend:src/lib/gen/base-url.ts")).write(`\
@@ -40,6 +44,5 @@ export async function ensureGitIgnore(patterns: string[]): Promise<void> {
         : newPatterns.join("\n") + "\n";
 
     await Bun.file(gitignorePath).write(content + appendContent);
-    console.log(`Added patterns to .gitignore: ${newPatterns.join(", ")}`);
   }
 }
