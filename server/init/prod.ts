@@ -11,7 +11,7 @@ import {
   type onFetch,
 } from "../../server";
 import { initEnv } from "./env";
-import { initBaseUrlFile } from "./base-url";
+import { initBaseUrlFile } from "./base-file";
 
 export const initProd = async ({
   loadApi,
