@@ -3,7 +3,7 @@ import { dir } from "../util/dir";
 
 export const initBaseFile = async () => {
   if (dir.exists("frontend:src/lib/gen")) {
-    rimraf(dir.path("frontend:src/lib/gen"));
+    await rimraf(dir.path("frontend:src/lib/gen"));
   }
   dir.ensure("frontend:src/lib/gen");
 
