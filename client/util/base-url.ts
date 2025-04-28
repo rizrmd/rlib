@@ -28,7 +28,7 @@ export const defineBaseUrl = <T extends SiteConfig>(config: T) => {
         }
 
         if (mode === "dev") {
-          const site = config.sites[p];
+          const site = config.sites[p.replace(/_/g, ".")];
           if (site) {
             return `http://${location.hostname}:${site.devPort}`;
           } else {
