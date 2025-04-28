@@ -1,6 +1,6 @@
 import type { Server } from "bun";
 import { padEnd } from "lodash";
-import type { SiteEntry } from "../../client/types";
+import type { SiteConfig, SiteEntry } from "../../client/types";
 import {
   buildAPI,
   buildPages,
@@ -17,19 +17,21 @@ export const initProd = async ({
   loadApi,
   loadModels,
   onFetch,
+  config,
 }: {
   loadModels: () => Promise<any>;
   loadApi: () => Promise<any>;
   onFetch?: onFetch;
+  config?: SiteConfig;
 }) => {
-  const { apiConfig, isDev, isLiveReload, pageConfig } = initEnv();
+  const { apiConfig, isDev, pageConfig } = initEnv(config);
   if (isDev) return null;
 
   await initBaseFile();
   await buildAPI(apiConfig);
   await buildPages(pageConfig);
 
-  const { config, routes } = await initHandler({
+  const { config: initConfig, routes } = await initHandler({
     root: process.cwd(),
     models: await loadModels(),
     backendApi: await loadApi(),
@@ -73,11 +75,11 @@ export const initProd = async ({
   // Choose default port - either defined in an environment variable or use 3000
   const port = process.env.PORT
     ? parseInt(process.env.PORT)
-    : config?.backend?.prodPort || 3000;
+    : initConfig?.backend?.prodPort || 3000;
 
   // Choose default site (first site in config if no specific default is provided)
   const defaultSiteName =
-    process.env.DEFAULT_SITE || Object.keys(config.sites)[0];
+    process.env.DEFAULT_SITE || Object.keys(initConfig.sites)[0];
 
   // Define server with proper type
   const server = Bun.serve({
@@ -106,7 +108,7 @@ export const initProd = async ({
       let siteName: string | null = null;
       let siteConfig: SiteEntry | null = null;
 
-      for (const [name, site] of Object.entries(config.sites)) {
+      for (const [name, site] of Object.entries(initConfig.sites)) {
         if (
           site.domains?.some(
             (domain) => host === domain || host.endsWith(`.${domain}`)
@@ -119,9 +121,9 @@ export const initProd = async ({
       }
 
       // If no matching domain found and we have a default site, use that
-      if (!siteName && defaultSiteName && config.sites[defaultSiteName]) {
+      if (!siteName && defaultSiteName && initConfig.sites[defaultSiteName]) {
         siteName = defaultSiteName;
-        siteConfig = config.sites[defaultSiteName] as any;
+        siteConfig = initConfig.sites[defaultSiteName] as any;
       }
 
       // If we still don't have a site, return 404
@@ -175,7 +177,7 @@ export const initProd = async ({
   );
   console.log(`${c.blue}PROD${c.reset} Configured domains:`);
 
-  for (const [name, site] of Object.entries(config.sites)) {
+  for (const [name, site] of Object.entries(initConfig.sites)) {
     if (site.domains && site.domains.length > 0) {
       console.log(
         `- ${padEnd(name + " ", 20, "─")} ${c.magenta}${site.domains.join(

@@ -8,12 +8,14 @@ import { staticFileHandler } from "../util/static-handler";
 import { initEnv } from "./env";
 import { initHandler, type onFetch } from "./handler";
 import { initBaseFile } from "./base-file";
+import type { SiteConfig } from "../../client";
 
 export const initDev = async ({
   index,
   loadApi,
   loadModels,
   onFetch,
+  config,
 }: {
   index: any;
   loadModels: () => Promise<any>;
@@ -22,8 +24,9 @@ export const initDev = async ({
     name: string;
     servers: Record<string, Server>;
   }>;
+  config?: SiteConfig;
 }) => {
-  const { apiConfig, isDev, isLiveReload, pageConfig } = initEnv();
+  const { apiConfig, isDev, isLiveReload, pageConfig } = initEnv(config);
 
   if (isDev) {
     if (!isLiveReload) {

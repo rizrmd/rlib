@@ -1,6 +1,7 @@
 export type SiteConfig = {
   backend: { prodPort: number };
   sites: Record<string, SiteEntry>;
+  mobile?: { enabled?: boolean };
   db?: { skip_tables?: string[] };
 };
 
