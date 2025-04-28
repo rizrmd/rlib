@@ -10,7 +10,7 @@ export const initEnv = (config?: SiteConfig) => {
 
   const frontend_out = ["frontend:src/lib/gen/api.ts"];
   if (config?.mobile?.enabled) {
-    console.log(config);
+    frontend_out.push("mobile:src/gen/api.ts");
   }
 
   const apiConfig = {
