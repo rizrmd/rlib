@@ -19,6 +19,7 @@ export const initHandler = async <
   root: string;
   models: T;
   backendApi: any;
+  config: SiteConfig;
 }) => {
   dir.root = join(process.cwd());
 
@@ -30,7 +31,7 @@ export const initHandler = async <
         "DATABASE_URL is not set. Please set it in your environment variables."
       );
     }
-    g.db = await defineDB(opt.models, process.env.DATABASE_URL!);
+    g.db = await defineDB(opt.models, process.env.DATABASE_URL!, opt.config);
   }
 
   const config: SiteConfig = await Bun.file(

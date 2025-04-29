@@ -10,6 +10,7 @@ import {
 import { createOracleClient } from "./oracle";
 import type { ModelDefinition } from "./types-gen";
 import type { ModelOperations } from "./types-lib";
+import type { SiteConfig } from "../../client";
 
 /**
  * Define a database connection to PostgreSQL using Bun's SQL driver
@@ -21,7 +22,8 @@ export const definePostgresDB = async <
   T extends { [K in string]: ModelDefinition<K> }
 >(
   models: T,
-  url: string
+  url: string,
+  config: SiteConfig
 ) => {
   const db = {} as ModelOperations<T>;
 
@@ -120,7 +122,8 @@ export const defineOracleDB = async <
  */
 export const defineDB = async <T extends { [K in string]: ModelDefinition<K> }>(
   models: T,
-  connectionInfo: string
+  connectionInfo: string,
+  config: SiteConfig
 ) => {
   // Check if the connectionInfo is an Oracle connection string
   if (connectionInfo.includes("User Id=") || connectionInfo.includes("user=")) {
@@ -164,6 +167,6 @@ export const defineDB = async <T extends { [K in string]: ModelDefinition<K> }>(
     return defineOracleDB(models, oracleConfig);
   } else {
     // It's a PostgreSQL connection URL
-    return definePostgresDB(models, connectionInfo);
+    return definePostgresDB(models, connectionInfo, config);
   }
 };
