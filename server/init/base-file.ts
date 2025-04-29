@@ -15,13 +15,17 @@ const config = raw_config satisfies SiteConfig;
 export const baseUrl = defineBaseUrl(config);
 `);
 
-  await Bun.file(dir.path("backend:src/gen/base-url.ts")).write(`\
+  const server_base = Bun.file(dir.path("backend:src/gen/base-url.ts"));
+
+  if (!(await server_base.exists())) {
+    await server_base.write(`\
   import { defineBaseUrl, type SiteConfig } from "rlib/server";
   import raw_config from "../../../config.json";
   
   const config = raw_config satisfies SiteConfig;
   export const baseUrl = defineBaseUrl(config);
   `);
+  }
 
   await ensureGitIgnore([
     "frontend/src/lib/gen",

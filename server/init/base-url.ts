@@ -1,5 +1,4 @@
 import type { SiteConfig } from "../../client";
-import { initEnv } from "./env";
 
 export const defineBaseUrl = <T extends SiteConfig>(config: T) => {
   let defaultSite = null;
@@ -17,7 +16,7 @@ export const defineBaseUrl = <T extends SiteConfig>(config: T) => {
     }
   }
 
-  let mode = initEnv().isDev ? "dev" : "prod";
+  let mode = process.argv.includes("--dev") ? "dev" : "prod";
 
   return new Proxy(
     {},
