@@ -1,6 +1,6 @@
 import { type BunRequest, type RouterTypes, type Server } from "bun";
 import { join } from "path";
-import { defineDB } from "../db/define";
+import { defineDB } from "../db/define-rlib";
 import type { ModelDefinition } from "../db/types-gen";
 import { dir } from "../util/dir";
 import type { SiteConfig } from "../../client";

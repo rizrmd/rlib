@@ -12,7 +12,7 @@ import {
 } from "./postgres/inspect";
 import { SQL } from "bun";
 import type { SiteConfig } from "../../client";
-import { prismaDBPull } from "./prisma";
+import { prismaDBPull } from "./prisma-pull";
 
 /**
  * Ensure directory exists, creating it if needed
