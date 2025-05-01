@@ -27,8 +27,22 @@ export const defineBaseUrl = <T extends SiteConfig>(config: T) => {
           mode = "prod";
         }
 
+        let isFirebaseStudio = false;
+        if (location.hostname.endsWith(".cloudworkstations.dev")) {
+          mode = "dev";
+          isFirebaseStudio = true;
+        }
+
         if (mode === "dev") {
           const site = config.sites[p.replace(/_/g, ".")];
+
+          if (isFirebaseStudio && site) {
+            const parts = location.pathname.split("/");
+            parts[0] = site.devPort + '';
+
+            return `https://${parts.join("/")}`;
+          }
+
           if (site) {
             return `http://${location.hostname}:${site.devPort}`;
           } else {
