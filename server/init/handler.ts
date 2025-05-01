@@ -1,9 +1,8 @@
-import { type BunRequest, type RouterTypes, type Server } from "bun";
+import { $, type BunRequest, type RouterTypes, type Server } from "bun";
 import { join } from "path";
-import { defineDB } from "../db/define";
+import type { SiteConfig } from "../../client";
 import type { ModelDefinition } from "../db/types-gen";
 import { dir } from "../util/dir";
-import type { SiteConfig } from "../../client";
 
 export type onFetch<T extends object = {}> = (
   arg: {
@@ -23,6 +22,13 @@ export const initHandler = async <
   loadModels: () => Promise<any>;
 }) => {
   dir.root = join(process.cwd());
+
+
+  if (opt.config) {
+    if (opt.config.db?.orm === "prisma") {
+      await $`bun prisma generate`.cwd(dir.path("shared:"));
+    }
+  }
 
   const g = global as any;
 

@@ -1,5 +1,6 @@
 import { rimraf } from "rimraf";
 import { dir } from "../util/dir";
+import type { SiteConfig } from "../../client";
 
 export const initBaseFile = async () => {
   if (dir.exists("frontend:src/lib/gen")) {
