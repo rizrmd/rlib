@@ -22,7 +22,7 @@ export const initProd = async ({
   loadModels: () => Promise<any>;
   loadApi: () => Promise<any>;
   onFetch?: onFetch;
-  config?: SiteConfig;
+  config: SiteConfig;
 }) => {
   const { apiConfig, isDev, pageConfig } = initEnv(config);
   if (isDev) return null;
