@@ -39,6 +39,7 @@ export const initDev = async ({
       root: process.cwd(),
       models: await loadModels(),
       backendApi: await loadApi(),
+      loadModels
     });
 
     const servers = {} as Record<string, Server>;

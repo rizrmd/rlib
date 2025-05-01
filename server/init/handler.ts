@@ -1,6 +1,6 @@
 import { type BunRequest, type RouterTypes, type Server } from "bun";
 import { join } from "path";
-import { defineDB } from "../db/define-rlib";
+import { defineDB } from "../db/define";
 import type { ModelDefinition } from "../db/types-gen";
 import { dir } from "../util/dir";
 import type { SiteConfig } from "../../client";
@@ -19,7 +19,8 @@ export const initHandler = async <
   root: string;
   models: T;
   backendApi: any;
-  config: SiteConfig;
+  config?: SiteConfig;
+  loadModels: () => Promise<any>;
 }) => {
   dir.root = join(process.cwd());
 
@@ -31,7 +32,7 @@ export const initHandler = async <
         "DATABASE_URL is not set. Please set it in your environment variables."
       );
     }
-    g.db = await defineDB(opt.models, process.env.DATABASE_URL!, opt.config);
+    g.db = opt.loadModels();
   }
 
   const config: SiteConfig = await Bun.file(
