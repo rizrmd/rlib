@@ -7,7 +7,8 @@ export const initBaseFile = async () => {
   }
   dir.ensure("frontend:src/lib/gen");
 
-  await Bun.file(dir.path("frontend:src/lib/gen/base-url.ts")).write(`\
+  const base_url = Bun.file(dir.path("frontend:src/lib/gen/base-url.ts"));
+  await base_url.write(`\
 import { defineBaseUrl, type SiteConfig } from "rlib/client";
 import raw_config from "../../../../config.json";
 
