@@ -37,10 +37,10 @@ export const defineBaseUrl = <T extends SiteConfig>(config: T) => {
           const site = config.sites[p.replace(/_/g, ".")];
 
           if (isFirebaseStudio && site) {
-            const parts = location.hostname.split("/");
+            const parts = location.hostname.split("-");
             parts[0] = site.devPort + '';
 
-            return `https://${parts.join("/")}`;
+            return `https://${parts.join("-")}`;
           }
 
           if (site) {
