@@ -1,6 +1,8 @@
 import type { SiteConfig } from "../../client";
 import { defineOracleDB, definePostgresDB } from "./define-rlib";
 import type { ModelDefinition } from "./types-gen";
+const fs = require('fs');
+const path = require('path');
 
 /**
  * Define a database connection based on the provided URL or config
@@ -18,6 +20,33 @@ export const defineDB = async <
 ) => {
   // Check if Prisma ORM is configured
   if (config.db?.orm === "prisma") {
+
+    // Ensure DATABASE_URL in shared environment matches root environment
+    try {
+        const rootEnvPath = path.resolve(process.cwd(), '.env');
+        const sharedEnvPath = path.resolve(process.cwd(), 'shared', '.env');
+        
+        if (fs.existsSync(rootEnvPath) && fs.existsSync(sharedEnvPath)) {
+            const rootEnv = fs.readFileSync(rootEnvPath, 'utf8');
+            const sharedEnv = fs.readFileSync(sharedEnvPath, 'utf8');
+            
+            const rootDbUrl = rootEnv.match(/DATABASE_URL\s*=\s*(.+)(\r?\n|$)/)?.[1];
+            const sharedDbUrl = sharedEnv.match(/DATABASE_URL\s*=\s*(.+)(\r?\n|$)/)?.[1];
+            
+            if (rootDbUrl && (!sharedDbUrl || rootDbUrl !== sharedDbUrl)) {
+                // Update shared .env with the root DATABASE_URL
+                const updatedSharedEnv = sharedDbUrl 
+                    ? sharedEnv.replace(/DATABASE_URL\s*=\s*.+(\r?\n|$)/, `DATABASE_URL=${rootDbUrl}$1`)
+                    : `${sharedEnv}\nDATABASE_URL=${rootDbUrl}`;
+                
+                fs.writeFileSync(sharedEnvPath, updatedSharedEnv);
+                console.log('Synchronized DATABASE_URL between root and shared environments');
+            }
+        }
+    } catch (error) {
+        console.warn('Failed to synchronize DATABASE_URL environments:', error);
+    }
+
     return models;
   }
 

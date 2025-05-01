@@ -105,7 +105,7 @@ export const prismaDBPull = async (config: SiteConfig, outputPath?: string) => {
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../node_modules/@prisma/client"
+  output   = "../models"
 }
 
 datasource db {
