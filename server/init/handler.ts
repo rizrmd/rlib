@@ -32,7 +32,7 @@ export const initHandler = async <
         "DATABASE_URL is not set. Please set it in your environment variables."
       );
     }
-    g.db = opt.loadModels();
+    g.db = await opt.loadModels();
   }
 
   const config: SiteConfig = await Bun.file(
