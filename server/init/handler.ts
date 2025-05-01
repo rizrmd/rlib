@@ -23,13 +23,6 @@ export const initHandler = async <
 }) => {
   dir.root = join(process.cwd());
 
-
-  if (opt.config) {
-    if (opt.config.db?.orm === "prisma") {
-      await $`bun prisma generate`.cwd(dir.path("shared:"));
-    }
-  }
-
   const g = global as any;
 
   if (!g.db) {
