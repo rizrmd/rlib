@@ -27,6 +27,12 @@ export const defineBaseUrl = <T extends SiteConfig>(config: T) => {
           mode = "prod";
         }
 
+        let isGithubCodespace = false;
+        if (location.hostname.endsWith("github.dev")) {
+          mode = "dev";
+          isGithubCodespace = true;
+        }
+
         let isFirebaseStudio = false;
         if (location.hostname.endsWith(".cloudworkstations.dev")) {
           mode = "dev";
@@ -36,9 +42,19 @@ export const defineBaseUrl = <T extends SiteConfig>(config: T) => {
         if (mode === "dev") {
           const site = config.sites[p.replace(/_/g, ".")];
 
+          if (isGithubCodespace && site) {
+            const parts = location.hostname.split("-");
+
+            const lastPart = parts[parts.length - 1]!.split("-");
+            lastPart[0] = site.devPort + "";
+            parts[parts.length - 1] = lastPart.join("-");
+
+            return `https://${parts.join("-")}`;
+          }
+
           if (isFirebaseStudio && site) {
             const parts = location.hostname.split("-");
-            parts[0] = site.devPort + '';
+            parts[0] = site.devPort + "";
 
             return `https://${parts.join("-")}`;
           }
