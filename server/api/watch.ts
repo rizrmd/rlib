@@ -71,6 +71,7 @@ export default defineAPI({
         fs.writeFileSync(fullPath, apiTemplate);
         // Update the file content for further processing
         fileContent = apiTemplate;
+        continue;
       }
 
       // Extract the URL from defineAPI({ url: "..." })
