@@ -42,6 +42,7 @@ export const initDev = async ({
       loadModels
     });
 
+
     const servers = {} as Record<string, Server>;
     const spa = spaHandler({ index, port: 45622 }); //Single Page App Handler
     const handleStatic = staticFileHandler({
@@ -51,6 +52,7 @@ export const initDev = async ({
     });
 
     for (const [name, site] of Object.entries(config.sites)) {
+    
       servers[name] = Bun.serve({
         port: site.devPort,
         routes: routes[name],

@@ -15,5 +15,6 @@ export * from "./server/init/prod";
 export * from "./server/init/handler";
 export * from "./server/init/env";
 export * from "./client/types";
-export * from './server/init/base-url'
+export * from "./server/init/base-url";
+export * from "./server/util/raw-html";
 export const c = color;
