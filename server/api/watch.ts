@@ -6,7 +6,7 @@ import * as path from "path";
 export const buildAPI = async (config: {
   input_dir: string;
   export_file: string;
-  frontend_out: string[]
+  frontend_out: string[];
 }) => {
   const paths = {
     in: dir.path(config.input_dir),
@@ -18,7 +18,7 @@ export const buildAPI = async (config: {
     .list(config.input_dir)
     .filter(
       (file) =>
-        file.endsWith(".ts") &&
+        (file.endsWith(".tsx") || file.endsWith(".ts")) &&
         !file.endsWith(".d.ts") &&
         !file.endsWith(".test.ts")
     );
@@ -40,6 +40,8 @@ export const buildAPI = async (config: {
         ? file
         : path.join(paths.in, file);
 
+        const ext = path.extname(file);
+
       // Read the file content to extract the URL
       let fileContent = fs.readFileSync(fullPath, "utf-8");
 
@@ -47,7 +49,7 @@ export const buildAPI = async (config: {
       if (!fileContent.trim()) {
         // Generate a URL path based on the file path
         const fileParts = file
-          .substring(0, file.length - 3)
+          .substring(0, file.length - ext.length)
           .replace(/\\/g, "/")
           .split("/");
         const name = fileParts[fileParts.length - 1];
@@ -96,7 +98,7 @@ export default defineAPI({
 
       // Create an import name based on the directory structure
       const importName = pathParts
-        .slice(Math.max(0, pathParts.length - 3)) // Get the last up to 3 parts
+        .slice(Math.max(0, pathParts.length - ext.length)) // Get the last up to 3 parts
         .join("_")
         .replace(/[^\w_]/g, "_");
 
@@ -210,12 +212,12 @@ ${dryObjectEntries}
 
   // Process all frontend output paths from the config
   const frontendPaths = config.frontend_out || [];
-  
+
   // Generate the default API client file for each frontend output path
   for (const frontendPath of frontendPaths) {
     const outfile = dir.path(frontendPath);
     const outDir = path.dirname(outfile);
-    
+
     if (!fs.existsSync(outfile)) {
       const content = `// Auto-generated file - DO NOT EDIT
 
@@ -237,7 +239,7 @@ export const api = apiClient({} as typeof backendApi, endpoints, "_");`;
         // Create domain-specific file in the same directory as the main API file
         const basePath = path.dirname(frontendPath);
         const outfile = dir.path(`${basePath}/${domain}.ts`);
-        
+
         if (!fs.existsSync(outfile)) {
           const content = `// Auto-generated file - DO NOT EDIT
 
