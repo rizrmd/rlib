@@ -52,7 +52,6 @@ export const initDev = async ({
     });
 
     for (const [name, site] of Object.entries(config.sites)) {
-    
       servers[name] = Bun.serve({
         port: site.devPort,
         routes: routes[name],

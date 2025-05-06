@@ -83,9 +83,24 @@ export const initProd = async ({
   const defaultSiteName =
     process.env.DEFAULT_SITE || Object.keys(initConfig.sites)[0];
 
+  const finalRoutes = {} as Record<string, any>;
+
+  for (const [name, site] of Object.entries(config.sites)) {
+    const route = routes[name];
+    if (route) {
+      for (const [path, handler] of Object.entries(route)) {
+        if (finalRoutes[path]) {
+        } else {
+          finalRoutes[path] = { ...handler, sites: [site] };
+        }
+      }
+    }
+  }
+
   // Define server with proper type
   const server = Bun.serve({
     port,
+    routes: finalRoutes,
     fetch: async (req): Promise<Response> => {
       const url = new URL(req.url);
       const host = req.headers.get("host") || "";
@@ -133,32 +148,6 @@ export const initProd = async ({
         return new Response("Domain not configured", { status: 404 });
       }
 
-      // If not a static file, handle API routes if available for this site
-      const siteRoutes = siteName ? routes[siteName] : undefined;
-
-      if (siteRoutes && Array.isArray(siteRoutes)) {
-        // Find the first route that matches both method and path pattern
-        const matchingRoute = siteRoutes.find((r) => {
-          if (
-            !r ||
-            typeof r.pattern !== "string" ||
-            typeof r.method !== "string"
-          ) {
-            return false;
-          }
-          return r.method === req.method && url.pathname.match(r.pattern);
-        });
-
-        if (matchingRoute && typeof matchingRoute.handler === "function") {
-          try {
-            return await matchingRoute.handler(req);
-          } catch (err) {
-            console.error(`API error:`, err);
-            return new Response("Internal Server Error", { status: 500 });
-          }
-        }
-      }
-
       // Try to serve static files first
       const staticResponse = await handlePublic(req);
       if (staticResponse) {
@@ -170,6 +159,7 @@ export const initProd = async ({
       if (distResponse) {
         return distResponse;
       }
+
       return new Response("Not Found", { status: 404 });
     },
   });
