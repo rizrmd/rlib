@@ -224,8 +224,9 @@ ${dryObjectEntries}
 import { apiClient } from "rlib/client";
 import type { backendApi } from "backend/gen/api";
 import { endpoints } from "backend/gen/api.url";
+import config from "../../../../config.json";
 
-export const api = apiClient({} as typeof backendApi, endpoints, "_");`;
+export const api = apiClient({} as typeof backendApi, endpoints, config, "_");`;
 
       dir.ensure(outDir);
       fs.writeFileSync(outfile, content);
@@ -246,8 +247,16 @@ export const api = apiClient({} as typeof backendApi, endpoints, "_");`;
 import { apiClient } from "rlib/client";
 import type { backendApi } from "backend/gen/api";
 import { endpoints } from "backend/gen/api.url";
+import config from "../../../../config.json";
 
-export const api = apiClient({} as typeof backendApi, endpoints, "${domain}");`;
+export const api = apiClient(
+  {} as typeof backendApi,
+  endpoints,
+  config,
+  "${domain}"
+);
+
+`;
 
           dir.ensure(path.dirname(outfile));
           fs.writeFileSync(outfile, content);
