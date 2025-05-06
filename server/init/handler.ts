@@ -51,23 +51,36 @@ export const initHandler = async <
       };
 
       let result = null;
-      if (req.method === "POST") {
-        const params = await req.json();
-        if (Array.isArray(params)) {
-          result = await (ctx.handler as any)(...params);
+      try {
+        if (req.method === "POST") {
+          const params = await req.json();
+          if (Array.isArray(params)) {
+            result = await (ctx.handler as any)(...params);
+          } else {
+            result = await (ctx.handler as any)(params);
+          }
         } else {
-          result = await (ctx.handler as any)(params);
+          result = await ctx.handler();
         }
-      } else {
-        result = await ctx.handler();
-      }
 
-      if (result instanceof Response) {
-        return result;
-      } else if (result instanceof Error) {
-        return new Response(result.message, {
+        if (result instanceof Response) {
+          return result;
+        } else if (result instanceof Error) {
+          return new Response(JSON.stringify({ __error: e.message }), {
+            status: 500,
+            statusText: result.message,
+            headers: {
+              "Content-Type": "application/json",
+            },
+          });
+        }
+      } catch (e:any) {
+        return new Response(JSON.stringify({ __error: e.message }), {
           status: 500,
           statusText: result.message,
+          headers: {
+            "Content-Type": "application/json",
+          },
         });
       }
 
