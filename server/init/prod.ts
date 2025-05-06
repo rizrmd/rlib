@@ -90,8 +90,28 @@ export const initProd = async ({
     if (route) {
       for (const [path, handler] of Object.entries(route)) {
         if (finalRoutes[path]) {
+          finalRoutes[path].sites[name] = { site, handler };
+          for (const [key, value] of Object.entries(handler)) {
+            finalRoutes[path][key] = async (req: any) => {
+              const url = new URL(req.url);
+              const sites = finalRoutes[path].sites as Record<
+                string,
+                { site: SiteEntry; handler: any }
+              >;
+              for (const [name, s] of Object.entries(sites)) {
+                if (s.site.domains && s.site.domains.includes(url.hostname)) {
+                  return await s.handler[req.method].bind(this)(req);
+                }
+              }
+
+              return new Response("Domain not configured", { status: 404 });
+            };
+          }
         } else {
-          finalRoutes[path] = { ...handler, sites: [site] };
+          finalRoutes[path] = {
+            ...handler,
+            sites: { [name]: { site, handler } },
+          };
         }
       }
     }
