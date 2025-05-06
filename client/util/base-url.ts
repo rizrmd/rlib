@@ -65,12 +65,29 @@ export const defineBaseUrl = <T extends SiteConfig>(config: T) => {
             return `http://${location.hostname}:${defaultSite?.devPort}`;
           }
         } else {
-          const site = config.sites[p];
+          const site = config.sites[p.replace(/_/g, ".")];
+
           if (site) {
-            return `https://${site.domains?.[0]}`;
-          } else {
-            return `https://${defaultSite?.domains?.[0]}`;
+            if (site.domains) {
+              const tld = location.hostname.split(".").pop();
+
+              for (const domain of site.domains) {
+                if (domain.endsWith(`.${tld}`)) {
+                  const url = new URL(`${location.protocol}//${domain}`);
+
+                  
+                  if (location.port && !["443", "80"].includes(location.port)) {
+                    url.port = location.port;
+                  }
+
+                  const finalUrl = url.toString();
+                  return finalUrl.substring(0, finalUrl.length - 1);
+                }
+              }
+              return `https://${site.domains?.[0]}`;
+            }
           }
+          return `https://${defaultSite?.domains?.[0]}`;
         }
 
         return "";
