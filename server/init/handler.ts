@@ -50,6 +50,15 @@ export const initHandler = async <
         handler: () => any;
       };
 
+      let headers = {} as Record<string, string>;
+      if (req.headers.get("Sec-Fetch-Mode") === "cors") {
+        headers = {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+          "Access-Control-Allow-Headers": "*",
+        };
+      }
+
       let result = null;
       try {
         if (req.method === "POST") {
@@ -63,7 +72,13 @@ export const initHandler = async <
           result = await ctx.handler();
         }
 
+
         if (result instanceof Response) {
+          if (Object.keys(headers).length > 0) {
+            for (const [key, value] of Object.entries(headers)) {
+              result.headers.set(key, value);
+            }
+          }
           return result;
         } else if (result instanceof Error) {
           return new Response(JSON.stringify({ __error: result.message }), {
@@ -71,10 +86,11 @@ export const initHandler = async <
             statusText: result.message,
             headers: {
               "Content-Type": "application/json",
+              ...headers,
             },
           });
         }
-      } catch (e:any) {
+      } catch (e: any) {
         return new Response(JSON.stringify({ __error: e.message }), {
           status: 500,
           statusText: e.message,
@@ -89,6 +105,7 @@ export const initHandler = async <
         statusText: "OK",
         headers: {
           "Content-Type": "application/json",
+          ...headers
         },
       });
     };

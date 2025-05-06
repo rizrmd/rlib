@@ -74,7 +74,6 @@ export const defineBaseUrl = <T extends SiteConfig>(config: T) => {
               for (const domain of site.domains) {
                 if (domain.endsWith(`.${tld}`)) {
                   const url = new URL(`${location.protocol}//${domain}`);
-
                   
                   if (location.port && !["443", "80"].includes(location.port)) {
                     url.port = location.port;
