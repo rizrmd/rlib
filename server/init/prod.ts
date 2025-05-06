@@ -1,5 +1,8 @@
-import type { Server } from "bun";
+import { build, type HTMLBundle } from "bun";
+import bunPluginTailwind from "bun-plugin-tailwind";
 import { padEnd } from "lodash";
+import { basename, dirname, extname, join } from "path";
+import { rimrafSync } from "rimraf";
 import type { SiteConfig, SiteEntry } from "../../client/types";
 import {
   buildAPI,
@@ -10,15 +13,16 @@ import {
   staticFileHandler,
   type onFetch,
 } from "../../server";
-import { initEnv } from "./env";
 import { initBaseFile } from "./base-file";
-
+import { initEnv } from "./env";
 export const initProd = async ({
+  index,
   loadApi,
   loadModels,
   onFetch,
   config,
 }: {
+  index: HTMLBundle;
   loadModels: () => Promise<any>;
   loadApi: () => Promise<any>;
   onFetch?: onFetch;
@@ -42,21 +46,62 @@ export const initProd = async ({
   // Production mode
   console.log(`${c.blue}PROD${c.reset} Building frontend...`);
 
-  // Run the build script in the frontend folder
-  const buildProcess = Bun.spawn(["bun", "run", "build"], {
-    cwd: dir.path("frontend:"),
-    stdout: "inherit",
-    stderr: "inherit",
+  const indexDir = dirname(index.index);
+  let entry = "";
+  let entryName = "";
+  const rewriter = new HTMLRewriter().on("script", {
+    element(element) {
+      const src = element.getAttribute("src") || "";
+      if (src) {
+        entry = join(indexDir, src);
+
+        if (src.startsWith("./")) {
+          element.setAttribute(src, src.substring(1));
+          entryName = src.substring(2);
+          const ext = extname(entryName);
+          entryName = basename(entryName, ext);
+        }
+        element.remove();
+      }
+    },
+  });
+  const html = rewriter.transform(await Bun.file(index.index).text());
+
+  rimrafSync(dir.path("frontend:dist"));
+  await build({
+    entrypoints: [entry],
+    outdir: dir.path("frontend:dist"),
+    plugins: [bunPluginTailwind],
+    minify: true,
+    target: "browser",
+    sourcemap: "linked",
+    splitting: true,
+    publicPath: "/",
+    define: {
+      "process.env.NODE_ENV": JSON.stringify("production"),
+    },
   });
 
-  const buildExit = await buildProcess.exited;
-
-  if (buildExit !== 0) {
-    console.error(
-      `${c.red}ERROR${c.reset} Frontend build failed with exit code ${buildExit}`
-    );
-    process.exit(1);
-  }
+  const newre = new HTMLRewriter().on("head", {
+    element(element) {
+      dir.list("frontend:dist").forEach((file) => {
+        if (file.startsWith(entryName)) {
+          if (file.endsWith(".css")) {
+            element.append(`<link rel="stylesheet" href="/${file}" />`, {
+              html: true,
+            });
+          } else if (file.endsWith(".js")) {
+            element.append(`<script type="module" src="/${file}"></script>`, {
+              html: true,
+            });
+          }
+        }
+      });
+    },
+  });
+  await Bun.file(dir.path("frontend:dist/index.html")).write(
+    newre.transform(html)
+  );
 
   console.log(`${c.green}PROD${c.reset} Frontend built successfully`);
 
@@ -65,13 +110,13 @@ export const initProd = async ({
     publicDir: "frontend:public",
     cache: true,
     maxAge: 86400, // 1 day cache,
-    spaIndexFile: "index.html",
   });
 
   const handleDist = staticFileHandler({
     publicDir: "frontend:dist",
     cache: true,
     maxAge: 86400, // 1 day cache
+    spaIndexFile: "index.html",
   });
 
   // Choose default port - either defined in an environment variable or use 3000
@@ -168,18 +213,17 @@ export const initProd = async ({
         return new Response("Domain not configured", { status: 404 });
       }
 
+      // Try to serve static files first
+      const staticResponse = await handlePublic(req);
+      if (staticResponse) {
+        return staticResponse;
+      }
+
       // Then try dist files (built frontend)
       const distResponse = await handleDist(req);
 
       if (distResponse) {
         return distResponse;
-      }
-
-      // Try to serve static files first
-      const staticResponse = await handlePublic(req);
-
-      if (staticResponse) {
-        return staticResponse;
       }
 
       return new Response("Not Found", { status: 404 });

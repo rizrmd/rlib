@@ -66,7 +66,7 @@ export const initHandler = async <
         if (result instanceof Response) {
           return result;
         } else if (result instanceof Error) {
-          return new Response(JSON.stringify({ __error: e.message }), {
+          return new Response(JSON.stringify({ __error: result.message }), {
             status: 500,
             statusText: result.message,
             headers: {
@@ -77,7 +77,7 @@ export const initHandler = async <
       } catch (e:any) {
         return new Response(JSON.stringify({ __error: e.message }), {
           status: 500,
-          statusText: result.message,
+          statusText: e.message,
           headers: {
             "Content-Type": "application/json",
           },

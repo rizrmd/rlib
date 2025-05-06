@@ -1,4 +1,4 @@
-import type { Server } from "bun";
+import type { HTMLBundle, Server } from "bun";
 import { padEnd } from "lodash";
 import { c } from "../../server";
 import { buildAPI, watchAPI } from "../api/watch";
@@ -17,7 +17,7 @@ export const initDev = async ({
   onFetch,
   config,
 }: {
-  index: any;
+  index: HTMLBundle;
   loadModels: () => Promise<any>;
   loadApi: () => Promise<any>;
   onFetch?: onFetch<{
@@ -39,9 +39,8 @@ export const initDev = async ({
       root: process.cwd(),
       models: await loadModels(),
       backendApi: await loadApi(),
-      loadModels
+      loadModels,
     });
-
 
     const servers = {} as Record<string, Server>;
     const spa = spaHandler({ index, port: 45622 }); //Single Page App Handler

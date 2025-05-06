@@ -6,7 +6,7 @@
     "db": "bun run ./server/db/cli.ts"
   },
   "devDependencies": {
-    "@types/bun": "latest",
+    "@types/bun": "^1.2.12",
     "@types/lodash": "^4.17.16",
     "@types/oracledb": "^6.6.0",
     "@types/pg": "^8.11.13",
@@ -17,6 +17,7 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "bun-plugin-tailwind": "^0.0.15",
     "lodash": "^4.17.21",
     "oracledb": "^6.8.0",
     "pg": "^8.14.1",
