@@ -64,14 +64,14 @@ export const initProd = async ({
   const handlePublic = staticFileHandler({
     publicDir: "frontend:public",
     cache: true,
-    maxAge: 86400, // 1 day cache
+    maxAge: 86400, // 1 day cache,
+    spaIndexFile: "index.html",
   });
 
   const handleDist = staticFileHandler({
     publicDir: "frontend:dist",
     cache: true,
     maxAge: 86400, // 1 day cache
-    spaIndexFile: "index.html",
   });
 
   // Choose default port - either defined in an environment variable or use 3000
@@ -168,16 +168,18 @@ export const initProd = async ({
         return new Response("Domain not configured", { status: 404 });
       }
 
-      // Try to serve static files first
-      const staticResponse = await handlePublic(req);
-      if (staticResponse) {
-        return staticResponse;
-      }
-
       // Then try dist files (built frontend)
       const distResponse = await handleDist(req);
+
       if (distResponse) {
         return distResponse;
+      }
+
+      // Try to serve static files first
+      const staticResponse = await handlePublic(req);
+
+      if (staticResponse) {
+        return staticResponse;
       }
 
       return new Response("Not Found", { status: 404 });

@@ -30,12 +30,14 @@ export interface StaticFileOptions {
    * Maximum age for cache control headers in seconds (default: 86400 = 1 day)
    */
   maxAge?: number;
-  
+
   /**
    * If specified, treat as SPA and serve this file when requested path is not found
    * (default: undefined - disabled)
    */
   spaIndexFile?: string;
+
+  exclude?: string[];
 }
 
 /**
@@ -94,6 +96,7 @@ export function staticFileHandler(options: StaticFileOptions = {}) {
     cache = true,
     maxAge = 86400,
     spaIndexFile,
+    exclude,
   } = options;
 
   const publicDirPath = dir.path(publicDir);
@@ -106,6 +109,14 @@ export function staticFileHandler(options: StaticFileOptions = {}) {
       // Handle root path
       if (pathname === "/") {
         pathname = "/index.html";
+      }
+
+      if (exclude) {
+        for (const pattern of exclude) {
+          if (pathname.startsWith(pattern)) {
+            return null; // Skip and let the application handle it
+          }
+        }
       }
 
       const filePath = join(publicDirPath, pathname);
@@ -144,22 +155,22 @@ export function staticFileHandler(options: StaticFileOptions = {}) {
         });
       } catch (error) {
         // File not found or not accessible
-        
+
         // If SPA mode is enabled, serve the index file
         if (spaIndexFile) {
           try {
             const spaFilePath = join(publicDirPath, spaIndexFile);
             const file = Bun.file(spaFilePath);
             const mimeType = getMimeType(spaFilePath, mimeTypes);
-            
+
             const headers = new Headers({
               "Content-Type": mimeType,
             });
-            
+
             if (cache) {
               headers.set("Cache-Control", `public, max-age=${maxAge}`);
             }
-            
+
             return new Response(file, {
               headers,
             });
@@ -167,7 +178,7 @@ export function staticFileHandler(options: StaticFileOptions = {}) {
             console.error("SPA index file not found:", spaError);
           }
         }
-        
+
         return null; // Skip and let the application handle it
       }
     } catch (error) {
