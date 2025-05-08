@@ -1,13 +1,13 @@
-import type { SiteConfig } from "../types";
+import type { SiteConfig, SiteEntry } from "../types";
 export const defineBaseUrl = <T extends SiteConfig>(config: T) => {
-  let defaultSite = null;
+  let defaultSite:SiteEntry | null = null;
   let defaultSiteName = "";
 
   if (config.sites) {
     for (const siteName in config.sites) {
       const site = config.sites[siteName];
       if (site) {
-        if (site.isDefault) {
+        if (site.isDefault || (site as any).default) {
           defaultSite = site;
           defaultSiteName = siteName;
         }
