@@ -26,7 +26,6 @@ export const apiClient = <T extends ApiDefinitions, K extends keyof T>(
           }
 
           let base = defineBaseUrl(config);
-          console.log(domain, base)
 
           const finalUrl = new URL(base[domain as string] as string);
           finalUrl.pathname = url;
