@@ -54,7 +54,7 @@ export default () => {
             );
             route =
               route === "." ? "/" : route.startsWith("/") ? route : `/${route}`;
-            routes[route] = `@/pages${route === "/" ? "" : route}`;
+            routes[route] = `../../pages${route === "/" ? "" : route}`;
           }
         }
       }

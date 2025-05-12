@@ -1,3 +1,4 @@
+import { error } from "console";
 import type { ApiDefinitions } from "../../server/api/types";
 import type { SiteConfig } from "../types";
 import { defineBaseUrl } from "../util/base-url";
@@ -34,9 +35,22 @@ export const apiClient = <T extends ApiDefinitions, K extends keyof T>(
             method: "POST",
             body: JSON.stringify(args),
           });
-          if (!result.ok) {
-            throw new Error("Request failed");
+          if (!result.ok || result.status >= 300) {
+            const errorText = await result.text();
+            let errorData: any = {};
+            try {
+              errorData = JSON.parse(errorText);
+            } catch (e) {
+              // Ignore JSON parse error
+            }
+
+            if (errorData.__error) {
+              throw new Error(errorData.__error);
+            }
+            // If the error is not JSON, throw the raw text
+            throw new Error(errorText);
           }
+
           const data = await result.json();
           return data;
         };
