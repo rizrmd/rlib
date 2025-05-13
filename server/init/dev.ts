@@ -1,4 +1,4 @@
-import type { HTMLBundle, Server } from "bun";
+import type { HTMLBundle, Server, WebSocketHandler } from "bun";
 import { padEnd } from "lodash";
 import { c } from "../../server";
 import { buildAPI, watchAPI } from "../api/watch";
@@ -16,6 +16,7 @@ export const initDev = async ({
   loadModels,
   onFetch,
   config,
+  ws: optWs,
 }: {
   index: HTMLBundle;
   loadModels: () => Promise<any>;
@@ -24,6 +25,7 @@ export const initDev = async ({
     name: string;
     servers: Record<string, Server>;
   }>;
+  ws?: Record<string, WebSocketHandler<{ url: URL }>>;
   config?: SiteConfig;
 }) => {
   const { apiConfig, isDev, isLiveReload, pageConfig } = initEnv(config);
@@ -56,17 +58,65 @@ export const initDev = async ({
         routes: routes[name],
         websocket: {
           message: (ws, msg) => {
+            const data = ws.data as any;
+            if (optWs && data?.url) {
+              for (const [name, wsHandler] of Object.entries(optWs)) {
+                if (
+                  data.url.pathname.startsWith(`/ws/${name}`) &&
+                  wsHandler.message
+                ) {
+                  wsHandler.message(ws as any, msg);
+                }
+              }
+            }
+
             if (spa.ws.message(ws, msg)) return;
           },
           open: (ws) => {
+            const data = ws.data as any;
+            if (optWs && data?.url) {
+              for (const [name, wsHandler] of Object.entries(optWs)) {
+                if (
+                  data.url.pathname.startsWith(`/ws/${name}`) &&
+                  wsHandler.open
+                ) {
+                  wsHandler.open(ws as any);
+                }
+              }
+            }
+
             if (spa.ws.open(ws)) return;
           },
-          close: (ws) => {
+          close: (ws, code, reason) => {
+            const data = ws.data as any;
+            if (optWs && data?.url) {
+              for (const [name, wsHandler] of Object.entries(optWs)) {
+                if (
+                  data.url.pathname.startsWith(`/ws/${name}`) &&
+                  wsHandler.close
+                ) {
+                  wsHandler.close(ws as any, code, reason);
+                }
+              }
+            }
+
             if (spa.ws.close(ws)) return;
           },
         },
         fetch: async (req) => {
           const url = new URL(req.url);
+
+          if (optWs && url.pathname.startsWith(`/ws/`)) {
+            const server = servers[name];
+            if (server) {
+              for (const [name, wsHandler] of Object.entries(optWs)) {
+                if (url.pathname.startsWith(`/ws/${name}`)) {
+                  server.upgrade(req, { data: { url: new URL(url) } });
+                  return;
+                }
+              }
+            }
+          }
 
           if (onFetch) {
             let res = onFetch({

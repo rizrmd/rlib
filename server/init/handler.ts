@@ -3,6 +3,7 @@ import { join } from "path";
 import type { SiteConfig } from "../../client";
 import type { ModelDefinition } from "../db/types-gen";
 import { dir } from "../util/dir";
+import { c } from "../../server";
 
 export type onFetch<T extends object = {}> = (
   arg: {
@@ -90,6 +91,8 @@ export const initHandler = async <
           });
         }
       } catch (e: any) {
+        console.log(`${c.red}[ERROR]${c.reset} ${c.cyan}${req.url}${c.reset}`);
+        console.error(e);
         return new Response(JSON.stringify({ __error: e.message }), {
           status: 500,
           statusText: e.message,
@@ -178,7 +181,7 @@ export const initHandler = async <
  */
 function generateRouteVariations(segments: string[]): string[] {
   const routes: string[] = [];
-  
+
   // Keep track of parameter positions
   const paramPositions: number[] = [];
   for (let i = 0; i < segments.length; i++) {
@@ -187,24 +190,24 @@ function generateRouteVariations(segments: string[]): string[] {
       paramPositions.push(i);
     }
   }
-  
+
   // Generate all possible combinations of removing parameters
   for (let i = 1; i <= paramPositions.length; i++) {
     // Get all combinations of size i from paramPositions
     const combinations = getCombinations(paramPositions, i);
-    
+
     for (const combination of combinations) {
       // Create a copy of segments to modify
       const modifiedSegments = [...segments];
-      
+
       // Remove parameters at the positions in the combination
       // We need to remove from right to left to avoid index shifting
       combination.sort((a, b) => b - a); // Sort in descending order
-      
+
       for (const pos of combination) {
         modifiedSegments.splice(pos, 1);
       }
-      
+
       // Generate the route string
       let route = "/" + modifiedSegments.join("/");
       if (route !== "/") {
@@ -213,7 +216,7 @@ function generateRouteVariations(segments: string[]): string[] {
       }
     }
   }
-  
+
   return [...new Set(routes)]; // Remove duplicates
 }
 
@@ -225,13 +228,13 @@ function generateRouteVariations(segments: string[]): string[] {
  */
 function getCombinations(arr: number[], r: number): number[][] {
   const result: number[][] = [];
-  
+
   function combine(start: number, current: number[]) {
     if (current.length === r) {
       result.push([...current]);
       return;
     }
-    
+
     for (let i = start; i < arr.length; i++) {
       const item = arr[i];
       if (item !== undefined) {
@@ -241,7 +244,7 @@ function getCombinations(arr: number[], r: number): number[][] {
       }
     }
   }
-  
+
   combine(0, []);
   return result;
 }
