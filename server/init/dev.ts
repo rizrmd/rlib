@@ -109,7 +109,7 @@ export const initDev = async ({
           if (optWs && url.pathname.startsWith(`/ws/`)) {
             const server = servers[name];
             if (server) {
-              for (const [name, wsHandler] of Object.entries(optWs)) {
+              for (const [name] of Object.entries(optWs)) {
                 if (url.pathname.startsWith(`/ws/${name}`)) {
                   server.upgrade(req, { data: { url: new URL(url) } });
                   return;
