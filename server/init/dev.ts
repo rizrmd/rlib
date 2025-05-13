@@ -25,7 +25,15 @@ export const initDev = async ({
     name: string;
     servers: Record<string, Server>;
   }>;
-  ws?: Record<string, WebSocketHandler<{ url: URL }>>;
+  ws?: Record<
+    string,
+    WebSocketHandler<{ url: URL }> & {
+      upgrade?: (opt: {
+        req: Request;
+        server: Server;
+      }) => object | Promise<object>;
+    }
+  >;
   config?: SiteConfig;
 }) => {
   const { apiConfig, isDev, isLiveReload, pageConfig } = initEnv(config);
@@ -109,9 +117,25 @@ export const initDev = async ({
           if (optWs && url.pathname.startsWith(`/ws/`)) {
             const server = servers[name];
             if (server) {
-              for (const [name] of Object.entries(optWs)) {
+              for (const [name, handler] of Object.entries(optWs)) {
                 if (url.pathname.startsWith(`/ws/${name}`)) {
-                  server.upgrade(req, { data: { url: new URL(url) } });
+                  if (handler.upgrade) {
+                    let data = handler.upgrade({ req, server });
+                    if (data instanceof Promise) {
+                      data = await data;
+                    }
+                    if (typeof data === "object") {
+                      server.upgrade(req, {
+                        data: { ...data, url: new URL(url) },
+                      });
+                    } else {
+                      throw new Error(
+                        " ws.upgrade have to return object to be used as data "
+                      );
+                    }
+                  } else {
+                    server.upgrade(req, { data: { url: new URL(url) } });
+                  }
                   return;
                 }
               }
