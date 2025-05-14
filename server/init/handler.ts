@@ -4,17 +4,19 @@ import type { SiteConfig } from "../../client";
 import type { ModelDefinition } from "../db/types-gen";
 import { dir } from "../util/dir";
 import { c } from "../../server";
+import { isValidElement } from "react";
+import { renderToString } from "react-dom/server";
 
 export type onFetch<T extends object = {}> = (
   arg: {
     url: URL;
     req: Request;
     server: Server;
-  } & Partial<T>
+  } & Partial<T>,
 ) => Promise<Response | void> | Response | void;
 
 export const initHandler = async <
-  T extends { [K in string]: ModelDefinition<K> }
+  T extends { [K in string]: ModelDefinition<K> },
 >(opt: {
   root: string;
   models: T;
@@ -29,14 +31,14 @@ export const initHandler = async <
   if (!g.db) {
     if (!process.env.DATABASE_URL) {
       throw new Error(
-        "DATABASE_URL is not set. Please set it in your environment variables."
+        "DATABASE_URL is not set. Please set it in your environment variables.",
       );
     }
     g.db = await opt.loadModels();
   }
 
   const config: SiteConfig = await Bun.file(
-    join(process.cwd(), "config.json")
+    join(process.cwd(), "config.json"),
   ).json();
 
   const routes = {} as Record<
@@ -71,6 +73,21 @@ export const initHandler = async <
           }
         } else {
           result = await ctx.handler();
+        }
+
+        if (typeof result === "object" && result.jsx) {
+          if (req.method === "POST") {
+            result = result.data;
+          } else if (req.method === "GET") {
+            if (isValidElement(result.jsx)) {
+              return new Response(renderToString(result.jsx), {
+                headers: {
+                  "Content-Type": "text/html",
+                  ...headers,
+                },
+              });
+            }
+          }
         }
 
         if (result instanceof Response) {
