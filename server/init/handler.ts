@@ -65,11 +65,15 @@ export const initHandler = async <
       let result = null;
       try {
         if (req.method === "POST") {
-          const params = await req.json();
-          if (Array.isArray(params)) {
-            result = await (ctx.handler as any)(...params);
+          if (req.headers.get("content-type")?.includes("multipart")) {
+            result = await (ctx.handler as any)();
           } else {
-            result = await (ctx.handler as any)(params);
+            const params = await req.json();
+            if (Array.isArray(params)) {
+              result = await (ctx.handler as any)(...params);
+            } else {
+              result = await (ctx.handler as any)(params);
+            }
           }
         } else {
           result = await ctx.handler();
