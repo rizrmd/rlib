@@ -35,6 +35,7 @@ export const apiClient = <T extends ApiDefinitions, K extends keyof T>(
             method: "POST",
             body: JSON.stringify(args),
           });
+
           if (!result.ok || result.status >= 300) {
             const errorText = await result.text();
             let errorData: any = {};

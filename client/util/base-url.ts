@@ -1,6 +1,6 @@
 import type { SiteConfig, SiteEntry } from "../types";
 export const defineBaseUrl = <T extends SiteConfig>(config: T) => {
-  let defaultSite:SiteEntry | null = null;
+  let defaultSite: SiteEntry | null = null;
   let defaultSiteName = "";
 
   if (config.sites) {
@@ -21,7 +21,8 @@ export const defineBaseUrl = <T extends SiteConfig>(config: T) => {
       get(target, p: keyof typeof config.sites, receiver) {
         let mode = "dev";
         if (
-          parseInt(location.port) === config.backend.prodPort ||
+          (parseInt(location.port) === config.backend.prodPort &&
+            location.hostname !== "localhost") ||
           location.protocol === "https:"
         ) {
           mode = "prod";
@@ -59,11 +60,12 @@ export const defineBaseUrl = <T extends SiteConfig>(config: T) => {
             return `https://${parts.join("-")}`;
           }
 
-          if (site) {
-            return `http://${location.hostname}:${site.devPort}`;
-          } else {
-            return `http://${location.hostname}:${defaultSite?.devPort}`;
+          let devPort = site ? site.devPort : defaultSite?.devPort;
+          if (!devPort) {
+            devPort = parseInt(location.port);
           }
+
+          return `http://${location.hostname}:${devPort}`;
         } else {
           const site = config.sites[p.replace(/_/g, ".")];
 
@@ -74,7 +76,7 @@ export const defineBaseUrl = <T extends SiteConfig>(config: T) => {
               for (const domain of site.domains) {
                 if (domain.endsWith(`.${tld}`)) {
                   const url = new URL(`${location.protocol}//${domain}`);
-                  
+
                   if (location.port && !["443", "80"].includes(location.port)) {
                     url.port = location.port;
                   }
