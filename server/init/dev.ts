@@ -17,6 +17,7 @@ export const initDev = async ({
   onFetch,
   config,
   ws: optWs,
+  onStart
 }: {
   index: HTMLBundle;
   loadModels: () => Promise<any>;
@@ -27,7 +28,7 @@ export const initDev = async ({
   }>;
   ws?: Record<
     string,
-    WebSocketHandler<{ url: URL }> & {
+    WebSocketHandler<object> & {
       upgrade?: (opt: {
         req: Request;
         server: Server;
@@ -35,11 +36,16 @@ export const initDev = async ({
     }
   >;
   config?: SiteConfig;
+  onStart?: () => Promise<void>;
 }) => {
   const { apiConfig, isDev, isLiveReload, pageConfig } = initEnv(config);
 
   if (isDev) {
     if (!isLiveReload) {
+      if (onStart) {
+        await onStart();
+      }
+
       await initBaseFile();
       await buildAPI(apiConfig);
       await buildPages(pageConfig);

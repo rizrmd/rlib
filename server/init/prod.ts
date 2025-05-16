@@ -1,4 +1,9 @@
-import { build, type HTMLBundle, type WebSocketHandler } from "bun";
+import {
+  build,
+  type HTMLBundle,
+  type Server,
+  type WebSocketHandler,
+} from "bun";
 import bunPluginTailwind from "bun-plugin-tailwind";
 import { padEnd } from "lodash";
 import { basename, dirname, extname, join } from "path";
@@ -21,16 +26,30 @@ export const initProd = async ({
   loadModels,
   onFetch,
   config,
+  onStart,
 }: {
   index: HTMLBundle;
   loadModels: () => Promise<any>;
   loadApi: () => Promise<any>;
   onFetch?: onFetch;
-  ws?: Record<string, WebSocketHandler<{ url: URL }>>;
+  ws?: Record<
+    string,
+    WebSocketHandler<object> & {
+      upgrade?: (opt: {
+        req: Request;
+        server: Server;
+      }) => object | Promise<object>;
+    }
+  >;
   config: SiteConfig;
+  onStart?: () => Promise<void>;
 }) => {
   const { apiConfig, isDev, pageConfig } = initEnv(config);
   if (isDev) return null;
+
+  if (onStart) {
+    await onStart();
+  }
 
   await initBaseFile();
   await buildAPI(apiConfig);
