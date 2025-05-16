@@ -148,7 +148,10 @@ async function runInspect(
       if (siteConfig?.db?.orm === "prisma") {
         console.log("Prisma ORM configured. Using prismaDBPull...");
         // Use prismaDBPull to handle the database schema pull
-        await prismaDBPull(siteConfig, outputPath);
+        try {
+          await prismaDBPull(siteConfig, outputPath);
+        } catch (e) {
+        }
         return;
       }
 
