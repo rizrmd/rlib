@@ -17,7 +17,7 @@ export const initDev = async ({
   onFetch,
   config,
   ws: optWs,
-  onStart
+  onStart,
 }: {
   index: HTMLBundle;
   loadModels: () => Promise<any>;
@@ -42,10 +42,6 @@ export const initDev = async ({
 
   if (isDev) {
     if (!isLiveReload) {
-      if (onStart) {
-        await onStart();
-      }
-
       await initBaseFile();
       await buildAPI(apiConfig);
       await buildPages(pageConfig);
@@ -57,6 +53,12 @@ export const initDev = async ({
       backendApi: await loadApi(),
       loadModels,
     });
+
+    if (!isLiveReload) {
+      if (onStart) {
+        await onStart();
+      }
+    }
 
     const servers = {} as Record<string, Server>;
     const spa = spaHandler({ index, port: 45622 }); //Single Page App Handler

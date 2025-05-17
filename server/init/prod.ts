@@ -47,10 +47,6 @@ export const initProd = async ({
   const { apiConfig, isDev, pageConfig } = initEnv(config);
   if (isDev) return null;
 
-  if (onStart) {
-    await onStart();
-  }
-
   await initBaseFile();
   await buildAPI(apiConfig);
   await buildPages(pageConfig);
@@ -62,6 +58,10 @@ export const initProd = async ({
     config,
     loadModels,
   });
+
+  if (onStart) {
+    await onStart();
+  }
 
   // Production mode
   console.log(`${c.blue}PROD${c.reset} Building frontend...`);
