@@ -27,6 +27,7 @@ export const initProd = async ({
   onFetch,
   config,
   onStart,
+  ws: optWs,
 }: {
   index: HTMLBundle;
   loadModels: () => Promise<any>;
@@ -186,9 +187,74 @@ export const initProd = async ({
   const server = Bun.serve({
     port,
     routes: finalRoutes,
-    fetch: async (req): Promise<Response> => {
+    websocket: {
+      message: (ws, msg) => {
+        const data = ws.data as any;
+        if (optWs && data?.url) {
+          for (const [name, wsHandler] of Object.entries(optWs)) {
+            if (
+              data.url.pathname.startsWith(`/ws/${name}`) &&
+              wsHandler.message
+            ) {
+              wsHandler.message(ws as any, msg);
+            }
+          }
+        }
+      },
+      open: (ws) => {
+        const data = ws.data as any;
+        if (optWs && data?.url) {
+          for (const [name, wsHandler] of Object.entries(optWs)) {
+            if (data.url.pathname.startsWith(`/ws/${name}`) && wsHandler.open) {
+              wsHandler.open(ws as any);
+            }
+          }
+        }
+      },
+      close: (ws, code, reason) => {
+        const data = ws.data as any;
+        if (optWs && data?.url) {
+          for (const [name, wsHandler] of Object.entries(optWs)) {
+            if (
+              data.url.pathname.startsWith(`/ws/${name}`) &&
+              wsHandler.close
+            ) {
+              wsHandler.close(ws as any, code, reason);
+            }
+          }
+        }
+      },
+    },
+    fetch: async (req): Promise<Response | void> => {
       const url = new URL(req.url);
       const host = req.headers.get("host") || "";
+
+      if (optWs && url.pathname.startsWith(`/ws/`)) {
+        if (server) {
+          for (const [name, handler] of Object.entries(optWs)) {
+            if (url.pathname.startsWith(`/ws/${name}`)) {
+              if (handler.upgrade) {
+                let data = handler.upgrade({ req, server });
+                if (data instanceof Promise) {
+                  data = await data;
+                }
+                if (typeof data === "object") {
+                  server.upgrade(req, {
+                    data: { ...data, url: new URL(url) },
+                  });
+                } else {
+                  throw new Error(
+                    " ws.upgrade have to return object to be used as data "
+                  );
+                }
+              } else {
+                server.upgrade(req, { data: { url: new URL(url) } });
+              }
+              return;
+            }
+          }
+        }
+      }
 
       if (onFetch) {
         let res = onFetch({
