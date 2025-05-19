@@ -146,7 +146,8 @@ export function staticFileHandler(options: StaticFileOptions = {}) {
         });
 
         // Add cache control headers if enabled
-        if (cache) {
+        if (cache && mimeType !== "text/html") {
+          // Only set cache control for non-HTML files
           headers.set("Cache-Control", `public, max-age=${maxAge}`);
         }
 
@@ -167,7 +168,8 @@ export function staticFileHandler(options: StaticFileOptions = {}) {
               "Content-Type": mimeType,
             });
 
-            if (cache) {
+            if (cache && mimeType !== "text/html") {
+              // Only set cache control for non-HTML files
               headers.set("Cache-Control", `public, max-age=${maxAge}`);
             }
 
