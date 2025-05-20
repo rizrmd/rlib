@@ -8,6 +8,10 @@ export const spaHandler = (opt: { index: any; port: number }) => {
     fetch() {
       return new Response(null, { status: 404 });
     },
+    error(error) {
+      console.error("Error in asset server:", error);
+      return new Response("Internal Server Error", { status: 500 });
+    },
     port: opt.port,
   });
   const hmr = new WeakMap<ServerWebSocket<unknown>, WebSocket>();
