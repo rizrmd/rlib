@@ -6,7 +6,9 @@ import { defineBaseUrl } from "../util/base-url";
 export const apiClient = <T extends ApiDefinitions, K extends keyof T>(
   api: T,
   endpoints: any,
-  config: SiteConfig & { fetch?: typeof fetch },
+  config: SiteConfig & {
+    fetch?: (arg: { url: string; body: any }) => Promise<any>;
+  },
   domain?: K
 ) => {
   const result = {};
@@ -31,31 +33,35 @@ export const apiClient = <T extends ApiDefinitions, K extends keyof T>(
           const finalUrl = new URL(base[domain as string] as string);
           finalUrl.pathname = url;
 
-          const _fetch = config.fetch || fetch;
+          const _fetch =
+            config.fetch ||
+            (async () => {
+              const result = await fetch(finalUrl, {
+                method: "POST",
+                body: JSON.stringify(args),
+              });
 
-          const result = await fetch(finalUrl, {
-            method: "POST",
-            body: JSON.stringify(args),
-          });
+              if (!result.ok || result.status >= 300) {
+                const errorText = await result.text();
+                let errorData: any = {};
+                try {
+                  errorData = JSON.parse(errorText);
+                } catch (e) {
+                  // Ignore JSON parse error
+                }
 
-          if (!result.ok || result.status >= 300) {
-            const errorText = await result.text();
-            let errorData: any = {};
-            try {
-              errorData = JSON.parse(errorText);
-            } catch (e) {
-              // Ignore JSON parse error
-            }
+                if (errorData.__error) {
+                  throw new Error(errorData.__error);
+                }
+                // If the error is not JSON, throw the raw text
+                throw new Error(errorText);
+              }
 
-            if (errorData.__error) {
-              throw new Error(errorData.__error);
-            }
-            // If the error is not JSON, throw the raw text
-            throw new Error(errorText);
-          }
+              const data = await result.json();
+              return data;
+            });
 
-          const data = await result.json();
-          return data;
+          return await _fetch({ url: finalUrl.toString(), body: args });
         };
       },
     }
