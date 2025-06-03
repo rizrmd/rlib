@@ -20,6 +20,9 @@ export const defineBaseUrl = <T extends SiteConfig>(config: T) => {
     {
       get(target, p: keyof typeof config.sites, receiver) {
         let mode = "dev";
+        if (typeof location === "undefined") {
+          return `https://${defaultSite?.domains?.[0]}`;
+        }
         if (
           (parseInt(location.port) === config.backend.prodPort &&
             location.hostname !== "localhost") ||
