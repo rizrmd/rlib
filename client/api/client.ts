@@ -31,6 +31,7 @@ export const apiClient = <T extends ApiDefinitions, K extends keyof T>(
           const finalUrl = new URL(base[domain as string] as string);
           finalUrl.pathname = url;
 
+          console.log(finalUrl.toString());
           const result = await fetch(finalUrl, {
             method: "POST",
             body: JSON.stringify(args),
