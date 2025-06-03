@@ -6,7 +6,7 @@ import { defineBaseUrl } from "../util/base-url";
 export const apiClient = <T extends ApiDefinitions, K extends keyof T>(
   api: T,
   endpoints: any,
-  config: SiteConfig,
+  config: SiteConfig & { fetch?: typeof fetch },
   domain?: K
 ) => {
   const result = {};
@@ -31,7 +31,8 @@ export const apiClient = <T extends ApiDefinitions, K extends keyof T>(
           const finalUrl = new URL(base[domain as string] as string);
           finalUrl.pathname = url;
 
-          console.log(finalUrl.toString());
+          const _fetch = config.fetch || fetch;
+
           const result = await fetch(finalUrl, {
             method: "POST",
             body: JSON.stringify(args),
