@@ -21,8 +21,11 @@ export const defineBaseUrl = <T extends SiteConfig>(config: T) => {
       get(target, p: keyof typeof config.sites, receiver) {
         let mode = "dev";
         if (typeof location === "undefined") {
-          console.log(`https://${defaultSite?.domains?.[0]}`)
-          return `https://${defaultSite?.domains?.[0]}`;
+          if (parseInt(defaultSite?.domains?.[0]!.split(".")[0] || "")) {
+            return `http://${defaultSite?.domains?.[0]}`;
+          } else {
+            return `https://${defaultSite?.domains?.[0]}`;
+          }
         }
         if (
           (parseInt(location.port) === config.backend.prodPort &&
