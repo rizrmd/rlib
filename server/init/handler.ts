@@ -3,26 +3,27 @@ import { join } from "path";
 import type { SiteConfig } from "../../client";
 import type { ModelDefinition } from "../db/types-gen";
 import { dir } from "../util/dir";
-import { c } from "../../server";
+import { c, spaHandler } from "../../server";
 import { isValidElement } from "react";
 import { renderToString } from "react-dom/server";
-
+import * as cheerio from "cheerio";
 export type onFetch<T extends object = {}> = (
   arg: {
     url: URL;
     req: Request;
     server: Server;
-  } & Partial<T>,
+  } & Partial<T>
 ) => Promise<Response | void> | Response | void;
 
 export const initHandler = async <
-  T extends { [K in string]: ModelDefinition<K> },
+  T extends { [K in string]: ModelDefinition<K> }
 >(opt: {
   root: string;
   models: T;
   backendApi: any;
   config?: SiteConfig;
   loadModels: () => Promise<any>;
+  spa?: ReturnType<typeof spaHandler>;
 }) => {
   dir.root = join(process.cwd());
 
@@ -31,14 +32,14 @@ export const initHandler = async <
   if (!g.db) {
     if (!process.env.DATABASE_URL) {
       throw new Error(
-        "DATABASE_URL is not set. Please set it in your environment variables.",
+        "DATABASE_URL is not set. Please set it in your environment variables."
       );
     }
     g.db = await opt.loadModels();
   }
 
   const config: SiteConfig = await Bun.file(
-    join(process.cwd(), "config.json"),
+    join(process.cwd(), "config.json")
   ).json();
 
   const routes = {} as Record<
@@ -47,7 +48,7 @@ export const initHandler = async <
   >;
 
   const createHandler = (handler: any) => {
-    const fn = async (req: BunRequest) => {
+    const fn = async (req: BunRequest, server: Server) => {
       const ctx = { ...(handler as any), req } as {
         url: string;
         handler: () => any;
@@ -84,7 +85,43 @@ export const initHandler = async <
             result = result.data;
           } else if (req.method === "GET") {
             if (isValidElement(result.jsx)) {
-              return new Response(renderToString(result.jsx), {
+              const baseHtml = await (
+                await opt.spa?.serve(req, server)
+              )?.text();
+
+              const reactHtml = renderToString(result.jsx);
+
+              // Load both HTML documents
+              const $base = cheerio.load(
+                baseHtml ||
+                  "<!DOCTYPE html><html><head></head><body></body></html>"
+              );
+              const $react = cheerio.load(reactHtml);
+
+              // Merge head content
+              $react("head")
+                .children()
+                .each((_, element) => {
+                  $base("head").append(element);
+                });
+
+              // Merge body content
+              let $seoDiv = $base("#seo");
+              if ($seoDiv.length === 0) {
+                // If seo div doesn't exist, create it and append to body
+                $base("body").append('<div id="seo" style="display:none;"></div>');
+                $seoDiv = $base("#seo");
+              }
+
+              // Put React body content into the seo div
+              $react("body")
+                .children()
+                .each((_, element) => {
+                  $seoDiv.append(element);
+                });
+
+              const finalHtml = $base.html();
+              return new Response(finalHtml, {
                 headers: {
                   "Content-Type": "text/html",
                   ...headers,

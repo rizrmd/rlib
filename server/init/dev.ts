@@ -47,11 +47,14 @@ export const initDev = async ({
       await buildPages(pageConfig);
     }
 
+    const spa = spaHandler({ index, port: 45622 }); //Single Page App Handler
+
     const { config, routes } = await initHandler({
       root: process.cwd(),
       models: await loadModels(),
       backendApi: await loadApi(),
       loadModels,
+      spa
     });
 
     if (!isLiveReload) {
@@ -61,7 +64,6 @@ export const initDev = async ({
     }
 
     const servers = {} as Record<string, Server>;
-    const spa = spaHandler({ index, port: 45622 }); //Single Page App Handler
     const handleStatic = staticFileHandler({
       publicDir: "frontend:public",
       cache: isDev ? false : true, // Disable cache in development
