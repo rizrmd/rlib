@@ -107,7 +107,9 @@ export const initHandler = async <
               let $seoDiv = $base("#seo");
               if ($seoDiv.length === 0) {
                 // If seo div doesn't exist, create it and append to body
-                $base("body").append('<div id="seo" style="display:none;"></div>');
+                $base("body").append(
+                  '<div id="seo" style="display:none;"></div>'
+                );
                 $seoDiv = $base("#seo");
               }
 
@@ -126,6 +128,8 @@ export const initHandler = async <
                 },
               });
             }
+          } else if (req.method === 'POST') {
+            result.jsx = {};
           }
         }
 
