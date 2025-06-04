@@ -81,9 +81,7 @@ export const initHandler = async <
         }
 
         if (typeof result === "object" && result.jsx) {
-          if (req.method === "POST") {
-            result = result.data;
-          } else if (req.method === "GET") {
+          if (req.method === "GET") {
             if (isValidElement(result.jsx)) {
               const baseHtml = await (
                 await opt.spa?.serve(req, server)
