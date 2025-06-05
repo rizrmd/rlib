@@ -12,6 +12,15 @@ import { formatValue, formatIdentifier } from "./query-util";
 import { buildWhereClauseStr } from "./query-read";
 
 /**
+ * Get primary key columns from a model definition
+ */
+function getPrimaryKeyColumns(modelDef: ModelDefinition<string>): string[] {
+  return Object.entries(modelDef.columns)
+    .filter(([_, colDef]) => colDef.is_primary_key)
+    .map(([colName]) => colName);
+}
+
+/**
  * Creates a function to handle creation of new records in Oracle
  */
 export function createCreate<
@@ -62,12 +71,20 @@ export function createCreate<
 INSERT INTO ${formatIdentifier(tableName)} (${fields.map(f => formatIdentifier(f)).join(", ")})
 VALUES (${placeholders.join(", ")})`;
 
-    // Handle returning primary key for Oracle
-    // Find the primary key column
-    const primaryKeyColumn = "id"; // Default to "id" if not specified - you may want to get this from model definition
+// Handle returning primary key(s) for Oracle
+const primaryKeyColumns = getPrimaryKeyColumns(modelDef);
+if (primaryKeyColumns.length === 0) {
+  throw new Error(`No primary key defined for table ${tableName}`);
+}
 
-    // Add returning clause for RETURNING the ID
-    sql += ` RETURNING ${formatIdentifier(primaryKeyColumn)} INTO :id`;
+// Add returning clause for primary key(s)
+const returningCols = primaryKeyColumns
+  .map(col => formatIdentifier(col))
+  .join(", ");
+const returningBinds = primaryKeyColumns
+  .map(col => `:${col}`)
+  .join(", ");
+sql += ` RETURNING ${returningCols} INTO ${returningBinds}`;
     
     let connection;
     let result: any = null;
@@ -77,7 +94,7 @@ VALUES (${placeholders.join(", ")})`;
       connection = await connectionPool.getConnection();
       
       // Start a transaction
-      await connection.execute("BEGIN");
+      // await connection.execute("BEGIN");
 
       // Set up binding object with values and output parameter
       const bindVars: any = {};
@@ -85,20 +102,24 @@ VALUES (${placeholders.join(", ")})`;
         bindVars[String(idx + 1)] = val;
       });
       
-      // Add output binding for returning clause
-      bindVars.id = { type: oracledb.NUMBER, dir: oracledb.BIND_OUT };
+      // Add output bindings for primary key(s)
+      primaryKeyColumns.forEach(col => {
+        bindVars[col] = { type: oracledb.NUMBER, dir: oracledb.BIND_OUT };
+      });
       
       // Execute the insert
       const insertResult = await connection.execute(sql, bindVars, { autoCommit: false });
       
       // Get the inserted ID
-      let insertedId = null;
+      // Get the inserted primary key values
+      let pkValues: Record<string, any> = {};
       if (insertResult.outBinds) {
-        // TypeScript safe way to access dynamic property
         const outBinds = insertResult.outBinds as Record<string, any>;
-        if (outBinds.id) {
-          insertedId = outBinds.id[0]; // The returned ID value
-        }
+        primaryKeyColumns.forEach(col => {
+          if (outBinds[col]) {
+            pkValues[col] = outBinds[col][0];
+          }
+        });
       }
 
       // Process relations if any
@@ -119,13 +140,16 @@ VALUES (${placeholders.join(", ")})`;
             if (relationDef.type === "has_many" && Array.isArray(value)) {
               for (const relItem of value) {
                 // Handle relation creating/updating
+                // Get the primary key value for the relation
+                const pkColumn = primaryKeyColumns[0];
+                const pkValue = pkColumn ? pkValues[pkColumn] : null;
                 await processRelationItem(
                   connection,
                   modelName,
                   relationDef,
                   relItem,
                   models,
-                  insertedId
+                  pkValue
                 );
               }
             } 
@@ -134,13 +158,16 @@ VALUES (${placeholders.join(", ")})`;
               (relationDef.type === "belongs_to" || relationDef.type === "has_one") &&
               typeof value === "object"
             ) {
+              // Get the primary key value for the relation
+              const pkColumn = primaryKeyColumns[0];
+              const pkValue = pkColumn ? pkValues[pkColumn] : null;
               await processRelationItem(
                 connection,
                 modelName,
                 relationDef,
                 value,
                 models,
-                insertedId
+                pkValue
               );
             }
           }
@@ -151,11 +178,13 @@ VALUES (${placeholders.join(", ")})`;
       await connection.execute("COMMIT");
 
       // Fetch the created record for return
-      if (insertedId !== null) {
-        let whereClause = `${formatIdentifier(primaryKeyColumn)} = :1`;
-        let selectSql = `SELECT * FROM ${formatIdentifier(tableName)} WHERE ${whereClause}`;
+      if (Object.keys(pkValues).length > 0) {
+        const whereConditions = Object.entries(pkValues)
+          .map(([col, _], idx) => `${formatIdentifier(col)} = :${idx + 1}`)
+          .join(" AND ");
+        const selectSql = `SELECT * FROM ${formatIdentifier(tableName)} WHERE ${whereConditions}`;
         
-        const selectResult = await connection.execute(selectSql, [insertedId]);
+        const selectResult = await connection.execute(selectSql, Object.values(pkValues));
         
         if (selectResult.rows && selectResult.rows.length > 0) {
           result = selectResult.rows[0];

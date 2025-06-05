@@ -38,6 +38,7 @@ export interface DatabaseStructure {
  */
 export interface ColumnDefinition {
   type: string;
+  is_primary_key: boolean;
 }
 
 export interface ModelRelations {
@@ -126,11 +127,10 @@ export async function getTableColumns(
           AND cols.OWNER = cons.OWNER
         WHERE
           cons.CONSTRAINT_TYPE = 'P'
-          ${
-            schema
-              ? `AND cons.OWNER = '${schema.toUpperCase()}'`
-              : `AND cons.OWNER = USER`
-          }
+          ${schema
+        ? `AND cons.OWNER = '${schema.toUpperCase()}'`
+        : `AND cons.OWNER = USER`
+      }
       ) pk
         ON c.OWNER = pk.OWNER
         AND c.TABLE_NAME = pk.TABLE_NAME
@@ -209,11 +209,10 @@ export async function getAllColumns(
           AND cols.OWNER = cons.OWNER
         WHERE
           cons.CONSTRAINT_TYPE = 'P'
-          ${
-            schema
-              ? `AND cons.OWNER = '${schema.toUpperCase()}'`
-              : `AND cons.OWNER = USER`
-          }
+          ${schema
+        ? `AND cons.OWNER = '${schema.toUpperCase()}'`
+        : `AND cons.OWNER = USER`
+      }
       ) pk
         ON c.OWNER = pk.OWNER
         AND c.TABLE_NAME = pk.TABLE_NAME
@@ -445,8 +444,9 @@ export async function generateModelDefinition(
   // Build columns object - keep original case
   const columnsDef: Record<string, ColumnDefinition> = {};
   columns.forEach((col) => {
-    columnsDef[col.column_name] = {
+  columnsDef[col.column_name] = {
       type: mapDataType(col.data_type),
+      is_primary_key: col.is_primary_key,
     };
   });
 
@@ -502,19 +502,19 @@ export function formatModelDefinition(modelDef: ModelDefinition): string {
   table: "${modelDef.table}",
   columns: {
 ${Object.entries(modelDef.columns)
-  .map(
-    ([colName, colDef]) => `    ${colName}: {
+      .map(
+        ([colName, colDef]) => `    ${colName}: {
       type: "${colDef.type}",
+      is_primary_key: ${colDef.is_primary_key}
     }`
-  )
-  .join(",\n")}
+      )
+      .join(",\n")}
   },
-  relations: {${
-    Object.keys(modelDef.relations).length > 0
+  relations: {${Object.keys(modelDef.relations).length > 0
       ? "\n" +
-        Object.entries(modelDef.relations)
-          .map(
-            ([relName, relDef]) => `    ${relName}: {
+      Object.entries(modelDef.relations)
+        .map(
+          ([relName, relDef]) => `    ${relName}: {
       type: "${relDef.type}",
       from: "${relDef.from}",
       to: {
@@ -522,11 +522,11 @@ ${Object.entries(modelDef.columns)
         column: "${relDef.to.column}",
       },
     }`
-          )
-          .join(",\n") +
-        "\n  "
+        )
+        .join(",\n") +
+      "\n  "
       : ""
-  }},
+    }},
 } as const satisfies ModelDefinition<"${modelDef.table}">;`;
 }
 
@@ -636,7 +636,7 @@ export async function inspectAllWithProgressParallel(
     const batch = tables.slice(i, i + concurrency);
     const batchPromises = batch.map(async (tableName, batchIndex) => {
       if (!tableName) return;
-      
+
       // Skip tables that match any of the skip patterns
       if (skipPatterns && shouldSkipTable(tableName, skipPatterns)) {
         if (progressCallback) {
@@ -729,10 +729,10 @@ function shouldSkipTable(tableName: string, skipPatterns: string[]): boolean {
   return skipPatterns.some((pattern) => {
     const regex = new RegExp(
       "^" +
-        pattern
-          .replace(/\*/g, ".*")
-          .replace(/\?/g, ".") +
-        "$"
+      pattern
+        .replace(/\*/g, ".*")
+        .replace(/\?/g, ".") +
+      "$"
     );
     return regex.test(tableName);
   });

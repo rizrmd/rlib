@@ -37,6 +37,7 @@ export interface DatabaseStructure {
  */
 export interface ColumnDefinition {
   type: string;
+  is_primary_key: boolean;
 }
 
 export interface ModelRelations {
@@ -299,6 +300,7 @@ export async function generateModelDefinition(
   columns.forEach((col) => {
     columnsDef[col.column_name] = {
       type: mapDataType(col.data_type),
+      is_primary_key: col.is_primary_key,
     };
   });
 
@@ -354,19 +356,19 @@ export function formatModelDefinition(modelDef: ModelDefinition): string {
   table: "${modelDef.table}",
   columns: {
 ${Object.entries(modelDef.columns)
-  .map(
-    ([colName, colDef]) => `    ${colName}: {
+      .map(
+        ([colName, colDef]) => `    ${colName}: {
       type: "${colDef.type}",
+      is_primary_key: ${colDef.is_primary_key}
     }`
-  )
-  .join(",\n")}
+      )
+      .join(",\n")}
   },
-  relations: {${
-    Object.keys(modelDef.relations).length > 0
+  relations: {${Object.keys(modelDef.relations).length > 0
       ? "\n" +
-        Object.entries(modelDef.relations)
-          .map(
-            ([relName, relDef]) => `    ${relName}: {
+      Object.entries(modelDef.relations)
+        .map(
+          ([relName, relDef]) => `    ${relName}: {
       type: "${relDef.type}",
       from: "${relDef.from}",
       to: {
@@ -374,11 +376,11 @@ ${Object.entries(modelDef.columns)
         column: "${relDef.to.column}",
       },
     }`
-          )
-          .join(",\n") +
-        "\n  "
+        )
+        .join(",\n") +
+      "\n  "
       : ""
-  }},
+    }},
 } as const satisfies ModelDefinition<"${modelDef.table}">;`;
 }
 
@@ -405,10 +407,10 @@ function shouldSkipTable(tableName: string, skipPatterns: string[]): boolean {
   return skipPatterns.some((pattern) => {
     const regex = new RegExp(
       "^" +
-        pattern
-          .replace(/\*/g, ".*")
-          .replace(/\?/g, ".") +
-        "$"
+      pattern
+        .replace(/\*/g, ".*")
+        .replace(/\?/g, ".") +
+      "$"
     );
     return regex.test(tableName);
   });
@@ -470,16 +472,16 @@ export async function inspectAllWithProgressParallel(
   const tables = await getTables(sql);
   const results: Record<string, string> = {};
   const total = tables.length;
-  
+
   // Track completion for progress reporting
   let completed = 0;
-  
+
   // Process tables in batches for parallel execution
   for (let i = 0; i < tables.length; i += concurrency) {
     const batch = tables.slice(i, i + concurrency);
     const batchPromises = batch.map(async (tableName, batchIndex) => {
       if (!tableName) return;
-      
+
       // Skip tables that match any of the skip patterns
       if (skipPatterns && shouldSkipTable(tableName, skipPatterns)) {
         if (progressCallback) {
@@ -490,19 +492,19 @@ export async function inspectAllWithProgressParallel(
       }
 
       const tableResult = await inspectTable(sql, tableName);
-      
+
       // Update progress after each table is processed
       completed++;
       if (progressCallback) {
         progressCallback(tableName, i + batchIndex, total);
       }
-      
+
       return { tableName, result: tableResult };
     });
-    
+
     // Wait for the current batch to complete
     const batchResults = await Promise.all(batchPromises);
-    
+
     // Add batch results to the final results object
     batchResults.forEach(item => {
       if (item && item.tableName) {

@@ -9,6 +9,7 @@ export type ModelName = string;
 // Column definition with type
 export interface ColumnDefinition {
   type: "text" | "number" | "boolean" | "date" | "datetime" | "time" | "json";
+  is_primary_key: boolean;
 }
 
 // Relation definition with target model
