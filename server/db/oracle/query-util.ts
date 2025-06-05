@@ -1,4 +1,7 @@
 // filepath: /Users/riz/Developer/rlib/server/db/oracle/query-util.ts
+
+import type { ModelDefinition } from "../types-gen";
+
 /**
  * Format a value for Oracle SQL insertion with proper escaping
  */
@@ -32,7 +35,7 @@ export function convertPositionalParams(sql: string): string {
  */
 export function buildPaginationClause(limit?: number, offset?: number): string {
   if (!limit && !offset) return "";
-  
+
   if (limit && offset) {
     // Oracle syntax for pagination (12c and above)
     return `OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY`;
@@ -43,7 +46,7 @@ export function buildPaginationClause(limit?: number, offset?: number): string {
     // Only offset, no limit (rare)
     return `OFFSET ${offset} ROWS`;
   }
-  
+
   return "";
 }
 
@@ -54,4 +57,13 @@ export function buildPaginationClause(limit?: number, offset?: number): string {
 export function formatIdentifier(name: string): string {
   // Double quotes preserve case in Oracle
   return `"${name}"`;
+}
+
+/**
+ * Get primary key columns from a model definition
+ */
+export function getPrimaryKeyColumns(modelDef: ModelDefinition<string>): string[] {
+  return Object.entries(modelDef.columns)
+    .filter(([_, colDef]) => colDef.is_primary_key)
+    .map(([colName]) => colName);
 }

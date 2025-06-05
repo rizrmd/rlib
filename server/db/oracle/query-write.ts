@@ -3,22 +3,12 @@ import oracledb from "oracledb";
 import type { ModelDefinition } from "../types-gen";
 import type {
   ModelCreate,
-  ModelUpdate,
   ModelCreateOptions,
-  ModelUpdateOptions,
-  WhereFields,
+  ModelUpdate,
+  ModelUpdateOptions
 } from "../types-lib";
-import { formatValue, formatIdentifier } from "./query-util";
 import { buildWhereClauseStr } from "./query-read";
-
-/**
- * Get primary key columns from a model definition
- */
-function getPrimaryKeyColumns(modelDef: ModelDefinition<string>): string[] {
-  return Object.entries(modelDef.columns)
-    .filter(([_, colDef]) => colDef.is_primary_key)
-    .map(([colName]) => colName);
-}
+import { formatIdentifier, getPrimaryKeyColumns } from "./query-util";
 
 /**
  * Creates a function to handle creation of new records in Oracle
