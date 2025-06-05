@@ -64,42 +64,25 @@ export function createCreate<
       }
     }
 
-// Get primary key columns and check for missing ones
+    // Prepare SQL query
+    const placeholders = fields.map((_, i) => `:${i + 1}`); // Oracle uses numeric placeholders
+    
+    let sql = `
+INSERT INTO ${formatIdentifier(tableName)} (${fields.map(f => formatIdentifier(f)).join(", ")})
+VALUES (${placeholders.join(", ")})`;
+
+// Handle returning primary key(s) for Oracle
 const primaryKeyColumns = getPrimaryKeyColumns(modelDef);
 if (primaryKeyColumns.length === 0) {
   throw new Error(`No primary key defined for table ${tableName}`);
 }
 
-// For each primary key that's not provided, we'll need to get a sequence value
-const missingPks = primaryKeyColumns.filter((pk: string) => !fields.includes(pk));
-const sequenceSelects = missingPks.map((pk: string) => 
-  `SELECT ${formatIdentifier(tableName)}_SEQ.NEXTVAL INTO :${pk}_seq FROM DUAL`
-).join(";\n");
-
-// Add missing primary keys to fields and placeholders
-missingPks.forEach((pk: string) => {
-  fields.push(pk);
-});
-
-// Prepare SQL query
-const placeholders = fields.map((field, i) => {
-  if (missingPks.includes(field)) {
-    return `:${field}_seq`; // Use sequence value for missing PKs
-  }
-  return `:${i + 1}`; // Oracle uses numeric placeholders
-});
-
-let sql = sequenceSelects ? `${sequenceSelects};\n` : '';
-sql += `
-INSERT INTO ${formatIdentifier(tableName)} (${fields.map(f => formatIdentifier(f)).join(", ")})
-VALUES (${placeholders.join(", ")})`;
-
 // Add returning clause for primary key(s)
 const returningCols = primaryKeyColumns
-  .map((col: string) => formatIdentifier(col))
+  .map(col => formatIdentifier(col))
   .join(", ");
 const returningBinds = primaryKeyColumns
-  .map((col: string) => `:${col}`)
+  .map(col => `:${col}`)
   .join(", ");
 sql += ` RETURNING ${returningCols} INTO ${returningBinds}`;
     
@@ -120,13 +103,8 @@ sql += ` RETURNING ${returningCols} INTO ${returningBinds}`;
       });
       
       // Add output bindings for primary key(s)
-      primaryKeyColumns.forEach((col: string) => {
-        if (missingPks.includes(col)) {
-          // If using sequence, we'll bind the OUT parameter with sequence value
-          bindVars[`${col}_seq`] = { type: oracledb.NUMBER, dir: oracledb.BIND_INOUT };
-        } else {
-          bindVars[col] = { type: oracledb.NUMBER, dir: oracledb.BIND_OUT };
-        }
+      primaryKeyColumns.forEach(col => {
+        bindVars[col] = { type: oracledb.NUMBER, dir: oracledb.BIND_OUT };
       });
       
       // Execute the insert
@@ -137,7 +115,7 @@ sql += ` RETURNING ${returningCols} INTO ${returningBinds}`;
       let pkValues: Record<string, any> = {};
       if (insertResult.outBinds) {
         const outBinds = insertResult.outBinds as Record<string, any>;
-        primaryKeyColumns.forEach((col: string) => {
+        primaryKeyColumns.forEach(col => {
           if (outBinds[col]) {
             pkValues[col] = outBinds[col][0];
           }
@@ -163,7 +141,7 @@ sql += ` RETURNING ${returningCols} INTO ${returningBinds}`;
               for (const relItem of value) {
                 // Handle relation creating/updating
                 // Get the primary key value for the relation
-                const pkColumn = primaryKeyColumns && primaryKeyColumns[0];
+                const pkColumn = primaryKeyColumns[0];
                 const pkValue = pkColumn ? pkValues[pkColumn] : null;
                 await processRelationItem(
                   connection,
@@ -181,7 +159,7 @@ sql += ` RETURNING ${returningCols} INTO ${returningBinds}`;
               typeof value === "object"
             ) {
               // Get the primary key value for the relation
-              const pkColumn = primaryKeyColumns && primaryKeyColumns[0];
+              const pkColumn = primaryKeyColumns[0];
               const pkValue = pkColumn ? pkValues[pkColumn] : null;
               await processRelationItem(
                 connection,
