@@ -66,33 +66,33 @@ export function createCreate<
 
     // Prepare SQL query
     const placeholders = fields.map((_, i) => `:${i + 1}`); // Oracle uses numeric placeholders
-    
+
     let sql = `
 INSERT INTO ${formatIdentifier(tableName)} (${fields.map(f => formatIdentifier(f)).join(", ")})
 VALUES (${placeholders.join(", ")})`;
 
-// Handle returning primary key(s) for Oracle
-const primaryKeyColumns = getPrimaryKeyColumns(modelDef);
-if (primaryKeyColumns.length === 0) {
-  throw new Error(`No primary key defined for table ${tableName}`);
-}
+    // Handle returning primary key(s) for Oracle
+    const primaryKeyColumns = getPrimaryKeyColumns(modelDef);
+    if (primaryKeyColumns.length === 0) {
+      throw new Error(`No primary key defined for table ${tableName}`);
+    }
 
-// Add returning clause for primary key(s)
-const returningCols = primaryKeyColumns
-  .map(col => formatIdentifier(col))
-  .join(", ");
-const returningBinds = primaryKeyColumns
-  .map(col => `:${col}`)
-  .join(", ");
-sql += ` RETURNING ${returningCols} INTO ${returningBinds}`;
-    
+    // Add returning clause for primary key(s)
+    const returningCols = primaryKeyColumns
+      .map(col => formatIdentifier(col))
+      .join(", ");
+    const returningBinds = primaryKeyColumns
+      .map(col => `:${col}`)
+      .join(", ");
+    sql += ` RETURNING ${returningCols} INTO ${returningBinds}`;
+
     let connection;
     let result: any = null;
     let error = null;
 
     try {
       connection = await connectionPool.getConnection();
-      
+
       // Start a transaction
       // await connection.execute("BEGIN");
 
@@ -101,15 +101,15 @@ sql += ` RETURNING ${returningCols} INTO ${returningBinds}`;
       values.forEach((val, idx) => {
         bindVars[String(idx + 1)] = val;
       });
-      
+
       // Add output bindings for primary key(s)
       primaryKeyColumns.forEach(col => {
         bindVars[col] = { type: oracledb.NUMBER, dir: oracledb.BIND_OUT };
       });
-      
+
       // Execute the insert
       const insertResult = await connection.execute(sql, bindVars, { autoCommit: false });
-      
+
       // Get the inserted ID
       // Get the inserted primary key values
       let pkValues: Record<string, any> = {};
@@ -132,9 +132,9 @@ sql += ` RETURNING ${returningCols} INTO ${returningBinds}`;
             value !== undefined
           ) {
             const relationDef = modelDef.relations[field as keyof typeof modelDef.relations];
-            
+
             if (!relationDef) continue;
-            
+
             // Handle the relation based on its type
             // For has_many relations (arrays of items)
             if (relationDef.type === "has_many" && Array.isArray(value)) {
@@ -152,7 +152,7 @@ sql += ` RETURNING ${returningCols} INTO ${returningBinds}`;
                   pkValue
                 );
               }
-            } 
+            }
             // For belongs_to/has_one relations (single items)
             else if (
               (relationDef.type === "belongs_to" || relationDef.type === "has_one") &&
@@ -183,12 +183,12 @@ sql += ` RETURNING ${returningCols} INTO ${returningBinds}`;
           .map(([col, _], idx) => `${formatIdentifier(col)} = :${idx + 1}`)
           .join(" AND ");
         const selectSql = `SELECT * FROM ${formatIdentifier(tableName)} WHERE ${whereConditions}`;
-        
+
         const selectResult = await connection.execute(selectSql, Object.values(pkValues));
-        
+
         if (selectResult.rows && selectResult.rows.length > 0) {
           result = selectResult.rows[0];
-          
+
           if (postProcess) {
             result = postProcess(result);
           }
@@ -205,7 +205,7 @@ sql += ` RETURNING ${returningCols} INTO ${returningBinds}`;
       }
     } catch (err) {
       error = err;
-      
+
       // Rollback on error
       if (connection) {
         try {
@@ -222,7 +222,7 @@ sql += ` RETURNING ${returningCols} INTO ${returningBinds}`;
           sql,
         };
       }
-      
+
       throw err;
     } finally {
       if (connection) {
@@ -313,25 +313,25 @@ WHERE ${whereClauseStr}`;
 
     try {
       connection = await connectionPool.getConnection();
-      
+
       // Start a transaction
-      await connection.execute("BEGIN");
+      // await connection.execute("BEGIN");
 
       // Execute the update with binding
       const bindVars: any = {};
       updateValues.forEach((val, idx) => {
         bindVars[String(idx + 1)] = val;
       });
-      
+
       const updateResult = await connection.execute(sql, bindVars, { autoCommit: false });
       const rowsAffected = updateResult.rowsAffected || 0;
 
       // Find the IDs of the updated records to process relations
       let selectWhere = whereClauseStr;
       let selectSql = `SELECT * FROM ${formatIdentifier(tableName)} WHERE ${selectWhere}`;
-      
+
       const selectResult = await connection.execute(selectSql);
-      
+
       if (selectResult.rows && selectResult.rows.length > 0) {
         const updatedRecords = selectResult.rows;
 
@@ -351,9 +351,9 @@ WHERE ${whereClauseStr}`;
                 value !== undefined
               ) {
                 const relationDef = modelDef.relations[field as keyof typeof modelDef.relations];
-                
+
                 if (!relationDef) continue;
-                
+
                 // Handle the relation based on its type
                 // For has_many relations (arrays of items)
                 if (relationDef.type === "has_many" && Array.isArray(value)) {
@@ -368,7 +368,7 @@ WHERE ${whereClauseStr}`;
                       recordId
                     );
                   }
-                } 
+                }
                 // For belongs_to/has_one relations (single items)
                 else if (
                   (relationDef.type === "belongs_to" || relationDef.type === "has_one") &&
@@ -377,7 +377,7 @@ WHERE ${whereClauseStr}`;
                   await processRelationItem(
                     connection,
                     modelName,
-                    relationDef, 
+                    relationDef,
                     value,
                     models,
                     recordId
@@ -389,7 +389,7 @@ WHERE ${whereClauseStr}`;
         }
 
         result = updatedRecords;
-        
+
         if (postProcess) {
           result = postProcess(result);
         }
@@ -409,7 +409,7 @@ WHERE ${whereClauseStr}`;
       }
     } catch (err) {
       error = err;
-      
+
       // Rollback on error
       if (connection) {
         try {
@@ -426,7 +426,7 @@ WHERE ${whereClauseStr}`;
           sql,
         };
       }
-      
+
       throw err;
     } finally {
       if (connection) {
@@ -458,22 +458,22 @@ async function processRelationItem<
 
   const targetModelName = relationDef.to.model;
   const targetModelDef = models[targetModelName as keyof M];
-  
+
   if (!targetModelDef) return;
-  
+
   const targetTableName = targetModelDef.table;
 
   // Check if this is a delete operation
   if (relItem._delete === true) {
     // Handle deletion
     let deleteSql = '';
-    
+
     if (relationDef.type === "has_many" || relationDef.type === "has_one") {
       // For has_many/has_one, delete/update the records that reference the parent
       deleteSql = `
         DELETE FROM ${formatIdentifier(targetTableName)}
         WHERE ${formatIdentifier(relationDef.to.column)} = :1`;
-      
+
       await connection.execute(deleteSql, [parentId]);
     }
     // For belongs_to, we normally don't delete the parent - just update the reference
@@ -483,64 +483,64 @@ async function processRelationItem<
     // Extract fields and values, excluding special operation flags
     const fields: string[] = [];
     const values: any[] = [];
-    
+
     // Process fields from the relation item
     for (const [field, value] of Object.entries(relItem)) {
       if (field === "_delete") continue; // Skip operation flags
-      
+
       if (targetModelDef.columns && targetModelDef.columns[field]) {
         fields.push(field);
         values.push(value);
       }
     }
-    
+
     // Add the relation linking field if not already present
     const linkField = relationDef.to.column;
     if (!fields.includes(linkField)) {
       fields.push(linkField);
       values.push(parentId);
     }
-    
+
     // Check if we have an ID field to determine if this is update or insert
     const idField = Object.keys(relItem).find(k => k === "id" || k === "ID");
-    
+
     if (idField && relItem[idField]) {
       // This is an update - has an ID
       const updateFields = fields.filter(f => f !== idField);
       const updateValues = values.filter((_, i) => fields[i] !== idField);
-      
+
       if (updateFields.length > 0) {
         // Build SET clause
         const setClause = updateFields
           .map((field, i) => `${formatIdentifier(field)} = :${i + 1}`)
           .join(", ");
-          
+
         const updateSql = `
           UPDATE ${formatIdentifier(targetTableName)}
           SET ${setClause}
           WHERE ${formatIdentifier(idField)} = :${updateFields.length + 1}`;
-          
+
         const bindVars: any = {};
         updateValues.forEach((val, idx) => {
           bindVars[String(idx + 1)] = val;
         });
         bindVars[String(updateFields.length + 1)] = relItem[idField];
-        
+
         await connection.execute(updateSql, bindVars, { autoCommit: false });
       }
     } else {
       // This is an insert - no ID
       const placeholders = fields.map((_, i) => `:${i + 1}`);
-      
+
       const insertSql = `
         INSERT INTO ${formatIdentifier(targetTableName)} (${fields.map(f => formatIdentifier(f)).join(", ")})
         VALUES (${placeholders.join(", ")})`;
-        
+
       const bindVars: any = {};
       values.forEach((val, idx) => {
         bindVars[String(idx + 1)] = val;
       });
-      
+
       await connection.execute(insertSql, bindVars, { autoCommit: false });
     }
   }
