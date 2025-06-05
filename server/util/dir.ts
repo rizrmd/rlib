@@ -9,6 +9,7 @@ export const dir = {
       "frontend:": "./frontend",
       "backend:": "./backend",
       "shared:": "./shared",
+      "mobile:": "./mobile",
       "root:": "./",
     };
 

@@ -1,8 +1,14 @@
+import { error } from "console";
 import type { ApiDefinitions } from "../../server/api/types";
+import type { SiteConfig } from "../types";
+import { defineBaseUrl } from "../util/base-url";
 
 export const apiClient = <T extends ApiDefinitions, K extends keyof T>(
   api: T,
   endpoints: any,
+  config: SiteConfig & {
+    fetch?: (arg: { url: string; body: any }) => Promise<any>;
+  },
   domain?: K
 ) => {
   const result = {};
@@ -22,15 +28,40 @@ export const apiClient = <T extends ApiDefinitions, K extends keyof T>(
             throw new Error("URL not found");
           }
 
-          const result = await fetch(url, {
-            method: "POST",
-            body: JSON.stringify(args),
-          });
-          if (!result.ok) {
-            throw new Error("Request failed");
-          }
-          const data = await result.json();
-          return data;
+          let base = defineBaseUrl(config);
+
+          const finalUrl = new URL(base[domain as string] as string);
+          finalUrl.pathname = url;
+
+          const _fetch =
+            config.fetch ||
+            (async () => {
+              const result = await fetch(finalUrl, {
+                method: "POST",
+                body: JSON.stringify(args),
+              });
+
+              if (!result.ok || result.status >= 300) {
+                const errorText = await result.text();
+                let errorData: any = {};
+                try {
+                  errorData = JSON.parse(errorText);
+                } catch (e) {
+                  // Ignore JSON parse error
+                }
+
+                if (errorData.__error) {
+                  throw new Error(errorData.__error);
+                }
+                // If the error is not JSON, throw the raw text
+                throw new Error(errorText);
+              }
+
+              const data = await result.json();
+              return data;
+            });
+
+          return await _fetch({ url: finalUrl.toString(), body: args });
         };
       },
     }

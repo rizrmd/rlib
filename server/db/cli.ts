@@ -11,6 +11,8 @@ import {
   inspectAllWithProgressParallel,
 } from "./postgres/inspect";
 import { SQL } from "bun";
+import type { SiteConfig } from "../../client";
+import { prismaDBPull } from "./prisma-pull";
 
 /**
  * Ensure directory exists, creating it if needed
@@ -109,6 +111,8 @@ async function runInspect(
 
     // Check for site config to get skip_tables patterns
     let skipTables: string[] = [];
+    let siteConfig: SiteConfig | undefined;
+
     try {
       // Try multiple potential config file locations
       const configLocations = [
@@ -118,8 +122,6 @@ async function runInspect(
         join(process.cwd(), ".config", "site.json"),
         join(process.cwd(), "config", "site.json"),
       ];
-
-      let siteConfig;
 
       // Try to find and load the site config from any of the possible locations
       for (const configPath of configLocations) {
@@ -140,6 +142,17 @@ async function runInspect(
             err
           );
         }
+      }
+
+      // Check if ORM is configured as prisma
+      if (siteConfig?.db?.orm === "prisma") {
+        console.log("Prisma ORM configured. Using prismaDBPull...");
+        // Use prismaDBPull to handle the database schema pull
+        try {
+          await prismaDBPull(siteConfig, outputPath);
+        } catch (e) {
+        }
+        return;
       }
 
       // Extract skip_tables patterns from the config

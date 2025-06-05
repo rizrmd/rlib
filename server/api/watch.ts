@@ -5,11 +5,12 @@ import * as path from "path";
 
 export const buildAPI = async (config: {
   input_dir: string;
-  out_file: string;
+  export_file: string;
+  frontend_out: string[];
 }) => {
   const paths = {
     in: dir.path(config.input_dir),
-    out: dir.path(config.out_file),
+    out: dir.path(config.export_file),
   };
 
   // Get all files in input directory recursively
@@ -17,7 +18,7 @@ export const buildAPI = async (config: {
     .list(config.input_dir)
     .filter(
       (file) =>
-        file.endsWith(".ts") &&
+        (file.endsWith(".tsx") || file.endsWith(".ts")) &&
         !file.endsWith(".d.ts") &&
         !file.endsWith(".test.ts")
     );
@@ -39,6 +40,8 @@ export const buildAPI = async (config: {
         ? file
         : path.join(paths.in, file);
 
+        const ext = path.extname(file);
+
       // Read the file content to extract the URL
       let fileContent = fs.readFileSync(fullPath, "utf-8");
 
@@ -46,22 +49,22 @@ export const buildAPI = async (config: {
       if (!fileContent.trim()) {
         // Generate a URL path based on the file path
         const fileParts = file
-          .substring(0, file.length - 3)
+          .substring(0, file.length - ext.length)
           .replace(/\\/g, "/")
           .split("/");
         const name = fileParts[fileParts.length - 1];
-        const url = `"/api/${fileParts
+        const url = `/api/${fileParts
           .filter((e) => !e.includes("."))
-          .join("/")}"`;
+          .join("/")}`;
 
         const apiTemplate = `import { defineAPI } from "rlib/server";
 
 export default defineAPI({
-  name: "${name}",
-  url: ${url},
+  name: "${url.replaceAll("/", "_").substring(5)}",
+  url: "${url}",
   async handler() {
     const req = this.req!;
-    console.log("route: " + ${url});
+    console.log("route: " + "${url}");
     return {};
   },
 });
@@ -70,6 +73,7 @@ export default defineAPI({
         fs.writeFileSync(fullPath, apiTemplate);
         // Update the file content for further processing
         fileContent = apiTemplate;
+        continue;
       }
 
       // Extract the URL from defineAPI({ url: "..." })
@@ -94,7 +98,7 @@ export default defineAPI({
 
       // Create an import name based on the directory structure
       const importName = pathParts
-        .slice(Math.max(0, pathParts.length - 3)) // Get the last up to 3 parts
+        .slice(Math.max(0, pathParts.length - ext.length)) // Get the last up to 3 parts
         .join("_")
         .replace(/[^\w_]/g, "_");
 
@@ -144,8 +148,12 @@ export default defineAPI({
 
   // Add non-domain endpoints wrapped in "_" property
   if (Object.keys(apiEndpoints).length > 0) {
-    apiObjectEntries += `  "_": {\n${regularEndpoints.map((e) => e[0]).join(",\n")}\n  }`;
-    dryObjectEntries += `  "_": {\n${regularEndpoints.map((e) => e[1]).join(",\n")}\n  }`;
+    apiObjectEntries += `  "_": {\n${regularEndpoints
+      .map((e) => e[0])
+      .join(",\n")}\n  }`;
+    dryObjectEntries += `  "_": {\n${regularEndpoints
+      .map((e) => e[1])
+      .join(",\n")}\n  }`;
   }
 
   // Add domain-grouped endpoints
@@ -202,44 +210,66 @@ ${dryObjectEntries}
     dryContent
   );
 
-  const outfile = dir.path(`frontend:src/lib/gen/api.ts`);
-  if (!fs.existsSync(outfile)) {
-    const content = `// Auto-generated file - DO NOT EDIT
+  // Process all frontend output paths from the config
+  const frontendPaths = config.frontend_out || [];
+
+  // Generate the default API client file for each frontend output path
+  for (const frontendPath of frontendPaths) {
+    const outfile = dir.path(frontendPath);
+    const outDir = path.dirname(outfile);
+
+    if (!fs.existsSync(outfile)) {
+      const content = `// Auto-generated file - DO NOT EDIT
 
 import { apiClient } from "rlib/client";
 import type { backendApi } from "backend/gen/api";
 import { endpoints } from "backend/gen/api.url";
+import config from "../../../../config.json";
 
-export const api = apiClient({} as typeof backendApi, endpoints, "_");`;
+export const api = apiClient({} as typeof backendApi, endpoints, config, "_");`;
 
-    dir.ensure("frontend:src/lib/gen/api");
-    fs.writeFileSync(outfile, content);
+      dir.ensure(outDir);
+      fs.writeFileSync(outfile, content);
+    }
   }
 
-  if (apiDomainEndpoints.size === 0) {
+  // Generate domain-specific API client files if domains exist
+  if (apiDomainEndpoints.size > 0) {
     for (const domain of apiDomainEndpoints.keys()) {
-      const outfile = dir.path(`frontend:src/lib/gen/api/${domain}.ts`);
-      if (!fs.existsSync(outfile)) {
-        const content = `// Auto-generated file - DO NOT EDIT
+      for (const frontendPath of frontendPaths) {
+        // Create domain-specific file in the same directory as the main API file
+        const basePath = path.dirname(frontendPath);
+        const outfile = dir.path(`${basePath}/${domain}.ts`);
+
+        if (!fs.existsSync(outfile)) {
+          const content = `// Auto-generated file - DO NOT EDIT
 
 import { apiClient } from "rlib/client";
 import type { backendApi } from "backend/gen/api";
 import { endpoints } from "backend/gen/api.url";
+import config from "../../../../config.json";
 
-export const api = apiClient({} as typeof backendApi, endpoints, "${domain}");
-    `;
+export const api = apiClient(
+  {} as typeof backendApi,
+  endpoints,
+  config,
+  "${domain}"
+);
 
-        dir.ensure("frontend:src/lib/gen/api");
-        fs.writeFileSync(outfile, content);
+`;
+
+          dir.ensure(path.dirname(outfile));
+          fs.writeFileSync(outfile, content);
+        }
       }
     }
   }
 };
 
-export const watchAPI = (config: { input_dir: string; out_file: string }) => {
+export const watchAPI = (config: Parameters<typeof buildAPI>[0]) => {
   const paths = {
     in: dir.path(config.input_dir),
-    out: dir.path(config.out_file),
+    out: dir.path(config.export_file),
   };
 
   const timeout = { build: null as any };

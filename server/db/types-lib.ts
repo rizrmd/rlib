@@ -111,23 +111,29 @@ export type OrderByClause<M, N extends keyof M> = {
 // Define a helper type to extract relation result types based on selection
 export type ExtractRelationResultType<
   M,
-  N extends keyof M, 
+  N extends keyof M,
   R extends RelationField<M, N>,
   S
 > = S extends true
-  ? { 
+  ? {
       [K in ModelField<M, RelationTargetInfo<M, N, R>>]: FieldValue<
-        M, 
+        M,
         RelationTargetInfo<M, N, R>,
         K
-      > 
+      >;
     }[]
   : S extends Record<string, any>
-  ? { 
-      [K in keyof S as S[K] extends true ? K : never]: 
-        K extends ModelField<M, RelationTargetInfo<M, N, R>>
-          ? FieldValue<M, RelationTargetInfo<M, N, R>, K & ModelField<M, RelationTargetInfo<M, N, R>>>
-          : never
+  ? {
+      [K in keyof S as S[K] extends true ? K : never]: K extends ModelField<
+        M,
+        RelationTargetInfo<M, N, R>
+      >
+        ? FieldValue<
+            M,
+            RelationTargetInfo<M, N, R>,
+            K & ModelField<M, RelationTargetInfo<M, N, R>>
+          >
+        : never;
     }[]
   : never;
 
@@ -325,4 +331,6 @@ export type ModelOperation<
 export type ModelOperations<M extends Record<string, ModelDefinition<string>>> =
   {
     [N in keyof M]: ModelOperation<M, N>;
+  } & {
+    _rawQuery: (sql: string, params?: any[]) => Promise<any[]>;
   };

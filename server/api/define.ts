@@ -5,6 +5,7 @@ export const defineAPI = <K extends string, T extends any>(opt: {
   url: K;
   handler: T;
   req?: BunRequest<K>;
+  user?: { id: string };
 }) => {
   return opt;
 };
