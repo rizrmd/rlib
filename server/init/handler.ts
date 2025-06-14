@@ -113,6 +113,10 @@ export const initHandler = async <
                 $seoDiv = $base("#seo");
               }
 
+              if (result.data) {
+                $base("body").append(`<script>window.__data = ${JSON.stringify(result.data)}</script>`);
+              }
+
               // Put React body content into the seo div
               $react("body")
                 .children()
@@ -128,7 +132,7 @@ export const initHandler = async <
                 },
               });
             }
-          } else if (req.method === 'POST') {
+          } else if (req.method === "POST") {
             result.jsx = {};
           }
         }
