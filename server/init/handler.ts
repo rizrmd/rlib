@@ -83,9 +83,9 @@ export const initHandler = async <
         if (typeof result === "object" && result.jsx) {
           if (req.method === "GET") {
             if (isValidElement(result.jsx)) {
-              const baseHtml = await (
-                await opt.spa?.serve(req, server)
-              )?.text();
+              const baseHtml = opt.spa
+                ? await (await opt.spa?.serve(req, server))?.text()
+                : await Bun.file(dir.path("frontend:dist/index.html")).text();
 
               const reactHtml = renderToString(result.jsx);
 
@@ -114,7 +114,11 @@ export const initHandler = async <
               }
 
               if (result.data) {
-                $base("body").append(`<script>window.__data = ${JSON.stringify(result.data)}</script>`);
+                $base("body").append(
+                  `<script>window.__data = ${JSON.stringify(
+                    result.data
+                  )}</script>`
+                );
               }
 
               // Put React body content into the seo div
