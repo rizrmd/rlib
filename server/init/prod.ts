@@ -164,9 +164,19 @@ export const initProd = async ({
                 string,
                 { site: SiteEntry; handler: any }
               >;
+
               for (const [name, s] of Object.entries(sites)) {
                 if (s.site.domains && s.site.domains.includes(url.hostname)) {
                   return await s.handler[req.method].bind(this)(req);
+                }
+              }
+
+              for (const s of Object.values(config.sites)) {
+                if (s.domains?.includes(url.hostname)) {
+                  const staticResponse = await handleDist(req);
+                  if (staticResponse) {
+                    return staticResponse;
+                  }
                 }
               }
 
