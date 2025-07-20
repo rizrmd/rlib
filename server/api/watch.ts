@@ -245,12 +245,12 @@ export const api = apiClient({} as unknown as typeof backendApi, endpoints, conf
           const content = `// Auto-generated file - DO NOT EDIT
 
 import { apiClient } from "rlib/client";
-import { backendApi } from "../../../../backend/src/gen/api";
+import type { backendApi } from "../../../../backend/src/gen/api";
 import { endpoints } from "../../../../backend/src/gen/api.url";
 import config from "../../../../config.json";
 
 export const api = apiClient(
-  backendApi,
+  {} as unknown as typeof backendApi,
   endpoints,
   config,
   "${domain}"

@@ -1,7 +1,7 @@
 import type { SiteConfig } from "../../client";
 
 export const defineBaseUrl = <T extends SiteConfig>(config: T) => {
-  let defaultSite = null;
+  let defaultSite: T["sites"][keyof T["sites"]] | null = null;
   let defaultSiteName = "";
 
   if (config.sites) {
@@ -9,7 +9,7 @@ export const defineBaseUrl = <T extends SiteConfig>(config: T) => {
       const site = config.sites[siteName];
       if (site) {
         if (site.isDefault) {
-          defaultSite = site;
+          defaultSite = site as T["sites"][keyof T["sites"]];
           defaultSiteName = siteName;
         }
       }

@@ -63,7 +63,7 @@ export const initHandler = async <
         };
       }
 
-      let result = null;
+      let result: any = null;
       try {
         if (req.method === "POST") {
           if (req.headers.get("content-type")?.includes("multipart")) {

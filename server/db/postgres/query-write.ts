@@ -53,9 +53,9 @@ export function createUpdate<
       
       if (relationItems.length > 0) {
         // Determine operation type based on the presence of 'id' property in relation items
-        const createItems = [];
-        const updateItems = [];
-        const deleteItems = [];
+        const createItems: any[] = [];
+        const updateItems: { where: { id: any }; data: any }[] = [];
+        const deleteItems: { id: any }[] = [];
         
         for (const item of relationItems) {
           if (item === null) continue;
