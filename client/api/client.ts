@@ -1,4 +1,3 @@
-import { error } from "console";
 import type { ApiDefinitions } from "../../server/api/types";
 import type { SiteConfig } from "../types";
 import { defineBaseUrl } from "../util/base-url";

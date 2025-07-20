@@ -103,7 +103,7 @@ export default defineAPI({
         .replace(/[^\w_]/g, "_");
 
       // Import path should be relative to the output file directory
-      const importPath = `backend/src/api/${relativePath}`.replace(/\\/g, "/");
+      const importPath = `../../../backend/src/api/${relativePath}`.replace(/\\/g, "/");
 
       apiImports.push(
         `import { default as ${importName} } from "${importPath}";`
@@ -222,11 +222,11 @@ ${dryObjectEntries}
       const content = `// Auto-generated file - DO NOT EDIT
 
 import { apiClient } from "rlib/client";
-import type { backendApi } from "backend/gen/api";
-import { endpoints } from "backend/gen/api.url";
+import { backendApi } from "../../../../backend/src/gen/api";
+import { endpoints } from "../../../../backend/src/gen/api.url";
 import config from "../../../../config.json";
 
-export const api = apiClient({} as typeof backendApi, endpoints, config, "_");`;
+export const api = apiClient(backendApi, endpoints, config, "_");`;
 
       dir.ensure(outDir);
       fs.writeFileSync(outfile, content);
@@ -245,12 +245,12 @@ export const api = apiClient({} as typeof backendApi, endpoints, config, "_");`;
           const content = `// Auto-generated file - DO NOT EDIT
 
 import { apiClient } from "rlib/client";
-import type { backendApi } from "backend/gen/api";
-import { endpoints } from "backend/gen/api.url";
+import { backendApi } from "../../../../backend/src/gen/api";
+import { endpoints } from "../../../../backend/src/gen/api.url";
 import config from "../../../../config.json";
 
 export const api = apiClient(
-  {} as typeof backendApi,
+  backendApi,
   endpoints,
   config,
   "${domain}"
