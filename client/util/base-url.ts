@@ -1,4 +1,14 @@
 import type { SiteConfig, SiteEntry } from "../types";
+
+// Type declaration for browser globals
+declare const window: {
+  location: {
+    port: string;
+    hostname: string;
+    protocol: string;
+  };
+} | undefined;
+
 export const defineBaseUrl = <T extends SiteConfig>(config: T) => {
   let defaultSite: SiteEntry | null = null;
   let defaultSiteName = "";
@@ -20,7 +30,7 @@ export const defineBaseUrl = <T extends SiteConfig>(config: T) => {
     {
       get(target, p: keyof typeof config.sites, receiver) {
         let mode = "dev";
-        if (typeof location === "undefined") {
+        if (typeof window === "undefined") {
           if (mode === "dev") {
             return `http://${defaultSite?.domains?.[0]}:${
               defaultSite?.devPort || 3000
@@ -29,21 +39,21 @@ export const defineBaseUrl = <T extends SiteConfig>(config: T) => {
           return `https://${defaultSite?.domains?.[0]}`;
         }
         if (
-          (parseInt(location.port) === config.backend.prodPort &&
-            location.hostname !== "localhost") ||
-          location.protocol === "https:"
+          (typeof window !== "undefined" && parseInt(window.location.port) === config.backend.prodPort &&
+            window.location.hostname !== "localhost") ||
+          (typeof window !== "undefined" && window.location.protocol === "https:")
         ) {
           mode = "prod";
         }
 
         let isGithubCodespace = false;
-        if (location.hostname.endsWith("github.dev")) {
+        if (typeof window !== "undefined" && window.location.hostname.endsWith("github.dev")) {
           mode = "dev";
           isGithubCodespace = true;
         }
 
         let isFirebaseStudio = false;
-        if (location.hostname.endsWith(".cloudworkstations.dev")) {
+        if (typeof window !== "undefined" && window.location.hostname.endsWith(".cloudworkstations.dev")) {
           mode = "dev";
           isFirebaseStudio = true;
         }
@@ -52,7 +62,7 @@ export const defineBaseUrl = <T extends SiteConfig>(config: T) => {
           const site = config.sites[p.replace(/_/g, ".")];
 
           if (isGithubCodespace && site) {
-            const parts = location.hostname.split("-");
+            const parts = window.location.hostname.split("-");
 
             const lastPart = parts[parts.length - 1]!.split("-");
             lastPart[0] = site.devPort + "";
@@ -62,7 +72,7 @@ export const defineBaseUrl = <T extends SiteConfig>(config: T) => {
           }
 
           if (isFirebaseStudio && site) {
-            const parts = location.hostname.split("-");
+            const parts = window.location.hostname.split("-");
             parts[0] = site.devPort + "";
 
             return `https://${parts.join("-")}`;
@@ -70,23 +80,23 @@ export const defineBaseUrl = <T extends SiteConfig>(config: T) => {
 
           let devPort = site ? site.devPort : defaultSite?.devPort;
           if (!devPort) {
-            devPort = parseInt(location.port);
+            devPort = typeof window !== "undefined" ? parseInt(window.location.port) : 3000;
           }
 
-          return `http://${location.hostname}:${devPort}`;
+          return `http://${typeof window !== "undefined" ? window.location.hostname : 'localhost'}:${devPort}`;
         } else {
           const site = config.sites[p.replace(/_/g, ".")];
 
           if (site) {
             if (site.domains) {
-              const tld = location.hostname.split(".").pop();
+              const tld = typeof window !== "undefined" ? window.location.hostname.split(".").pop() : undefined;
 
               for (const domain of site.domains) {
-                if (domain.endsWith(`.${tld}`)) {
-                  const url = new URL(`${location.protocol}//${domain}`);
+                if (tld && domain.endsWith(`.${tld}`)) {
+                  const url = new URL(`${typeof window !== "undefined" ? window.location.protocol : 'https:'}//${domain}`);
 
-                  if (location.port && !["443", "80"].includes(location.port)) {
-                    url.port = location.port;
+                  if (typeof window !== "undefined" && window.location.port && !["443", "80"].includes(window.location.port)) {
+                    url.port = window.location.port;
                   }
 
                   const finalUrl = url.toString();
