@@ -129,9 +129,33 @@ export const initHandler = async <
                 });
 
               const finalHtml = $base.html();
+              
+              // Generate ETag for dynamically generated HTML
+              const encoder = new TextEncoder();
+              const data = encoder.encode(finalHtml);
+              const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+              const hashArray = Array.from(new Uint8Array(hashBuffer));
+              const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 16);
+              const etag = `"${hashHex}"`;
+              
+              // Check if client has matching ETag
+              const ifNoneMatch = req.headers.get("If-None-Match");
+              if (ifNoneMatch && ifNoneMatch === etag) {
+                return new Response(null, {
+                  status: 304,
+                  headers: {
+                    "ETag": etag,
+                    "Cache-Control": "no-cache",
+                    ...headers,
+                  },
+                });
+              }
+
               return new Response(finalHtml, {
                 headers: {
                   "Content-Type": "text/html",
+                  "ETag": etag,
+                  "Cache-Control": "no-cache",
                   ...headers,
                 },
               });

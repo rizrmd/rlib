@@ -3,6 +3,27 @@ import { statSync } from "fs";
 import { dir } from "./dir";
 
 /**
+ * Generate ETag for static files based on file stats (size and modification time)
+ */
+function generateStaticETag(stats: ReturnType<typeof statSync>): string {
+  const mtime = stats.mtime.getTime().toString(16);
+  const size = stats.size.toString(16);
+  return `"${size}-${mtime}"`;
+}
+
+/**
+ * Generate ETag for dynamic content based on content hash
+ */
+async function generateContentETag(content: string | ArrayBuffer): string {
+  const encoder = new TextEncoder();
+  const data = typeof content === 'string' ? encoder.encode(content) : new Uint8Array(content);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 16);
+  return `"${hashHex}"`;
+}
+
+/**
  * Configuration options for serving static files
  */
 export interface StaticFileOptions {
@@ -141,14 +162,46 @@ export function staticFileHandler(options: StaticFileOptions = {}) {
         const file = Bun.file(filePath);
         const mimeType = getMimeType(filePath, mimeTypes);
 
+        let etag: string;
+        
+        // For HTML files, generate ETag based on content hash (since they might be generated)
+        // For other files, use file stats for better performance
+        if (mimeType === "text/html") {
+          const content = await file.text();
+          etag = await generateContentETag(content);
+        } else {
+          etag = generateStaticETag(stats);
+        }
+
+        // Check if client has matching ETag (conditional request)
+        const ifNoneMatch = req.headers.get("If-None-Match");
+        if (ifNoneMatch && ifNoneMatch === etag) {
+          // Client has current version, return 304 Not Modified
+          return new Response(null, {
+            status: 304,
+            headers: {
+              "ETag": etag,
+              "Cache-Control": cache 
+                ? (mimeType === "text/html" ? "no-cache" : `public, max-age=${maxAge}`)
+                : "no-cache",
+            },
+          });
+        }
+
         const headers = new Headers({
           "Content-Type": mimeType,
+          "ETag": etag,
         });
 
         // Add cache control headers if enabled
-        if (cache && mimeType !== "text/html") {
-          // Only set cache control for non-HTML files
-          headers.set("Cache-Control", `public, max-age=${maxAge}`);
+        if (cache) {
+          if (mimeType === "text/html") {
+            // HTML files should not be cached aggressively but can use ETag validation
+            headers.set("Cache-Control", "no-cache");
+          } else {
+            // Other static assets can be cached
+            headers.set("Cache-Control", `public, max-age=${maxAge}`);
+          }
         }
 
         return new Response(file, {
@@ -161,16 +214,48 @@ export function staticFileHandler(options: StaticFileOptions = {}) {
         if (spaIndexFile) {
           try {
             const spaFilePath = join(publicDirPath, spaIndexFile);
+            const spaStats = statSync(spaFilePath);
             const file = Bun.file(spaFilePath);
             const mimeType = getMimeType(spaFilePath, mimeTypes);
 
+            let spaEtag: string;
+            
+            // For HTML files, generate ETag based on content hash
+            // For other files, use file stats for better performance
+            if (mimeType === "text/html") {
+              const content = await file.text();
+              spaEtag = await generateContentETag(content);
+            } else {
+              spaEtag = generateStaticETag(spaStats);
+            }
+
+            // Check if client has matching ETag for SPA file
+            const ifNoneMatch = req.headers.get("If-None-Match");
+            if (ifNoneMatch && ifNoneMatch === spaEtag) {
+              return new Response(null, {
+                status: 304,
+                headers: {
+                  "ETag": spaEtag,
+                  "Cache-Control": cache 
+                    ? (mimeType === "text/html" ? "no-cache" : `public, max-age=${maxAge}`)
+                    : "no-cache",
+                },
+              });
+            }
+
             const headers = new Headers({
               "Content-Type": mimeType,
+              "ETag": spaEtag,
             });
 
-            if (cache && mimeType !== "text/html") {
-              // Only set cache control for non-HTML files
-              headers.set("Cache-Control", `public, max-age=${maxAge}`);
+            if (cache) {
+              if (mimeType === "text/html") {
+                // HTML files should not be cached aggressively but can use ETag validation
+                headers.set("Cache-Control", "no-cache");
+              } else {
+                // Other static assets can be cached
+                headers.set("Cache-Control", `public, max-age=${maxAge}`);
+              }
             }
 
             return new Response(file, {
