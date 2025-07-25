@@ -97,6 +97,11 @@ export const initProd = async ({
     target: "browser",
     sourcemap: "linked",
     splitting: true,
+    naming: {
+      entry: "[dir]/[name]-[hash].[ext]",
+      chunk: "[dir]/[name]-[hash].[ext]",
+      asset: "[dir]/[name]-[hash].[ext]",
+    },
     publicPath: "/",
     define: {
       "process.env.NODE_ENV": JSON.stringify("production"),
@@ -105,18 +110,28 @@ export const initProd = async ({
 
   const newre = new HTMLRewriter().on("head", {
     element(element) {
-      dir.list("frontend:dist").forEach((file) => {
-        if (file.startsWith(entryName)) {
-          if (file.endsWith(".css")) {
-            element.append(`<link rel="stylesheet" href="/${file}" />`, {
-              html: true,
-            });
-          } else if (file.endsWith(".js")) {
-            element.append(`<script type="module" src="/${file}"></script>`, {
-              html: true,
-            });
-          }
-        }
+      const files = dir.list("frontend:dist");
+      
+      // Find all JS and CSS files that match the entry pattern (with hash)
+      const jsFiles = files.filter(file => 
+        file.startsWith(entryName) && file.endsWith(".js") && file.includes("-")
+      );
+      const cssFiles = files.filter(file => 
+        file.startsWith(entryName) && file.endsWith(".css") && file.includes("-")
+      );
+      
+      // Add CSS files first
+      cssFiles.forEach((file) => {
+        element.append(`<link rel="stylesheet" href="/${file}" />`, {
+          html: true,
+        });
+      });
+      
+      // Add JS files
+      jsFiles.forEach((file) => {
+        element.append(`<script type="module" src="/${file}"></script>`, {
+          html: true,
+        });
       });
     },
   });
@@ -125,6 +140,17 @@ export const initProd = async ({
   );
 
   console.log(`${c.green}PROD${c.reset} Frontend built successfully`);
+  
+  // Log the generated files for verification
+  const builtFiles = dir.list("frontend:dist").filter(file => 
+    file.startsWith(entryName) && (file.endsWith(".js") || file.endsWith(".css"))
+  );
+  if (builtFiles.length > 0) {
+    console.log(`${c.blue}PROD${c.reset} Generated assets:`);
+    builtFiles.forEach(file => {
+      console.log(`  - ${c.magenta}${file}${c.reset}`);
+    });
+  }
 
   // Setup static file handlers for both public and dist directories
   const handlePublic = staticFileHandler({
