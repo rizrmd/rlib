@@ -14,12 +14,20 @@ function generateStaticETag(stats: ReturnType<typeof statSync>): string {
 /**
  * Generate ETag for dynamic content based on content hash
  */
-async function generateContentETag(content: string | ArrayBuffer): string {
+async function generateContentETag(
+  content: string | ArrayBuffer
+): Promise<string> {
   const encoder = new TextEncoder();
-  const data = typeof content === 'string' ? encoder.encode(content) : new Uint8Array(content);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const data =
+    typeof content === "string"
+      ? encoder.encode(content)
+      : new Uint8Array(content);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 16);
+  const hashHex = hashArray
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("")
+    .substring(0, 16);
   return `"${hashHex}"`;
 }
 
@@ -163,7 +171,7 @@ export function staticFileHandler(options: StaticFileOptions = {}) {
         const mimeType = getMimeType(filePath, mimeTypes);
 
         let etag: string;
-        
+
         // For HTML files, generate ETag based on content hash (since they might be generated)
         // For other files, use file stats for better performance
         if (mimeType === "text/html") {
@@ -177,23 +185,23 @@ export function staticFileHandler(options: StaticFileOptions = {}) {
         const ifNoneMatch = req.headers.get("If-None-Match");
         if (ifNoneMatch && ifNoneMatch === etag) {
           // Client has current version, return 304 Not Modified
-          const cacheControl = cache 
-            ? (mimeType === "text/html" 
-                ? "no-cache" 
-                : (mimeType === "text/javascript" || mimeType === "text/css")
-                  ? "public, max-age=0, must-revalidate"
-                  : `public, max-age=${maxAge}`)
+          const cacheControl = cache
+            ? mimeType === "text/html"
+              ? "no-cache"
+              : mimeType === "text/javascript" || mimeType === "text/css"
+              ? "public, max-age=0, must-revalidate"
+              : `public, max-age=${maxAge}`
             : "no-cache";
-          
+
           const headers: Record<string, string> = {
-            "ETag": etag,
+            ETag: etag,
             "Cache-Control": cacheControl,
           };
-          
+
           if (mimeType === "text/javascript" || mimeType === "text/css") {
             headers["Vary"] = "Accept-Encoding";
           }
-          
+
           return new Response(null, {
             status: 304,
             headers,
@@ -202,7 +210,7 @@ export function staticFileHandler(options: StaticFileOptions = {}) {
 
         const headers = new Headers({
           "Content-Type": mimeType,
-          "ETag": etag,
+          ETag: etag,
         });
 
         // Add cache control headers if enabled
@@ -210,7 +218,10 @@ export function staticFileHandler(options: StaticFileOptions = {}) {
           if (mimeType === "text/html") {
             // HTML files should not be cached aggressively but can use ETag validation
             headers.set("Cache-Control", "no-cache");
-          } else if (mimeType === "text/javascript" || mimeType === "text/css") {
+          } else if (
+            mimeType === "text/javascript" ||
+            mimeType === "text/css"
+          ) {
             // JavaScript and CSS files should use ETag validation with Cloudflare-friendly headers
             headers.set("Cache-Control", "public, max-age=0, must-revalidate");
             headers.set("Vary", "Accept-Encoding");
@@ -235,7 +246,7 @@ export function staticFileHandler(options: StaticFileOptions = {}) {
             const mimeType = getMimeType(spaFilePath, mimeTypes);
 
             let spaEtag: string;
-            
+
             // For HTML files, generate ETag based on content hash
             // For other files, use file stats for better performance
             if (mimeType === "text/html") {
@@ -248,23 +259,23 @@ export function staticFileHandler(options: StaticFileOptions = {}) {
             // Check if client has matching ETag for SPA file
             const ifNoneMatch = req.headers.get("If-None-Match");
             if (ifNoneMatch && ifNoneMatch === spaEtag) {
-              const cacheControl = cache 
-                ? (mimeType === "text/html" 
-                    ? "no-cache" 
-                    : (mimeType === "text/javascript" || mimeType === "text/css")
-                      ? "public, max-age=0, must-revalidate"
-                      : `public, max-age=${maxAge}`)
+              const cacheControl = cache
+                ? mimeType === "text/html"
+                  ? "no-cache"
+                  : mimeType === "text/javascript" || mimeType === "text/css"
+                  ? "public, max-age=0, must-revalidate"
+                  : `public, max-age=${maxAge}`
                 : "no-cache";
-              
+
               const headers: Record<string, string> = {
-                "ETag": spaEtag,
+                ETag: spaEtag,
                 "Cache-Control": cacheControl,
               };
-              
+
               if (mimeType === "text/javascript" || mimeType === "text/css") {
                 headers["Vary"] = "Accept-Encoding";
               }
-              
+
               return new Response(null, {
                 status: 304,
                 headers,
@@ -273,16 +284,22 @@ export function staticFileHandler(options: StaticFileOptions = {}) {
 
             const headers = new Headers({
               "Content-Type": mimeType,
-              "ETag": spaEtag,
+              ETag: spaEtag,
             });
 
             if (cache) {
               if (mimeType === "text/html") {
                 // HTML files should not be cached aggressively but can use ETag validation
                 headers.set("Cache-Control", "no-cache");
-              } else if (mimeType === "text/javascript" || mimeType === "text/css") {
+              } else if (
+                mimeType === "text/javascript" ||
+                mimeType === "text/css"
+              ) {
                 // JavaScript and CSS files should use ETag validation with Cloudflare-friendly headers
-                headers.set("Cache-Control", "public, max-age=0, must-revalidate");
+                headers.set(
+                  "Cache-Control",
+                  "public, max-age=0, must-revalidate"
+                );
                 headers.set("Vary", "Accept-Encoding");
               } else {
                 // Other static assets can be cached normally
