@@ -177,14 +177,26 @@ export function staticFileHandler(options: StaticFileOptions = {}) {
         const ifNoneMatch = req.headers.get("If-None-Match");
         if (ifNoneMatch && ifNoneMatch === etag) {
           // Client has current version, return 304 Not Modified
+          const cacheControl = cache 
+            ? (mimeType === "text/html" 
+                ? "no-cache" 
+                : (mimeType === "text/javascript" || mimeType === "text/css")
+                  ? "public, max-age=0, must-revalidate"
+                  : `public, max-age=${maxAge}`)
+            : "no-cache";
+          
+          const headers: Record<string, string> = {
+            "ETag": etag,
+            "Cache-Control": cacheControl,
+          };
+          
+          if (mimeType === "text/javascript" || mimeType === "text/css") {
+            headers["Vary"] = "Accept-Encoding";
+          }
+          
           return new Response(null, {
             status: 304,
-            headers: {
-              "ETag": etag,
-              "Cache-Control": cache 
-                ? (mimeType === "text/html" ? "no-cache" : `public, max-age=${maxAge}`)
-                : "no-cache",
-            },
+            headers,
           });
         }
 
@@ -198,8 +210,12 @@ export function staticFileHandler(options: StaticFileOptions = {}) {
           if (mimeType === "text/html") {
             // HTML files should not be cached aggressively but can use ETag validation
             headers.set("Cache-Control", "no-cache");
+          } else if (mimeType === "text/javascript" || mimeType === "text/css") {
+            // JavaScript and CSS files should use ETag validation with Cloudflare-friendly headers
+            headers.set("Cache-Control", "public, max-age=0, must-revalidate");
+            headers.set("Vary", "Accept-Encoding");
           } else {
-            // Other static assets can be cached
+            // Other static assets can be cached normally
             headers.set("Cache-Control", `public, max-age=${maxAge}`);
           }
         }
@@ -232,14 +248,26 @@ export function staticFileHandler(options: StaticFileOptions = {}) {
             // Check if client has matching ETag for SPA file
             const ifNoneMatch = req.headers.get("If-None-Match");
             if (ifNoneMatch && ifNoneMatch === spaEtag) {
+              const cacheControl = cache 
+                ? (mimeType === "text/html" 
+                    ? "no-cache" 
+                    : (mimeType === "text/javascript" || mimeType === "text/css")
+                      ? "public, max-age=0, must-revalidate"
+                      : `public, max-age=${maxAge}`)
+                : "no-cache";
+              
+              const headers: Record<string, string> = {
+                "ETag": spaEtag,
+                "Cache-Control": cacheControl,
+              };
+              
+              if (mimeType === "text/javascript" || mimeType === "text/css") {
+                headers["Vary"] = "Accept-Encoding";
+              }
+              
               return new Response(null, {
                 status: 304,
-                headers: {
-                  "ETag": spaEtag,
-                  "Cache-Control": cache 
-                    ? (mimeType === "text/html" ? "no-cache" : `public, max-age=${maxAge}`)
-                    : "no-cache",
-                },
+                headers,
               });
             }
 
@@ -252,8 +280,12 @@ export function staticFileHandler(options: StaticFileOptions = {}) {
               if (mimeType === "text/html") {
                 // HTML files should not be cached aggressively but can use ETag validation
                 headers.set("Cache-Control", "no-cache");
+              } else if (mimeType === "text/javascript" || mimeType === "text/css") {
+                // JavaScript and CSS files should use ETag validation with Cloudflare-friendly headers
+                headers.set("Cache-Control", "public, max-age=0, must-revalidate");
+                headers.set("Vary", "Accept-Encoding");
               } else {
-                // Other static assets can be cached
+                // Other static assets can be cached normally
                 headers.set("Cache-Control", `public, max-age=${maxAge}`);
               }
             }
