@@ -6,8 +6,8 @@ import { dir } from "./dir";
  * Generate ETag for static files based on file stats (size and modification time)
  */
 function generateStaticETag(stats: ReturnType<typeof statSync>): string {
-  const mtime = stats.mtime.getTime().toString(16);
-  const size = stats.size.toString(16);
+  const mtime = stats?.mtime.getTime().toString(16);
+  const size = stats?.size.toString(16);
   return `"${size}-${mtime}"`;
 }
 
