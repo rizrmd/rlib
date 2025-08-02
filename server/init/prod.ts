@@ -170,27 +170,51 @@ export const initProd = async ({
     process.env.DEFAULT_SITE || Object.keys(initConfig.sites)[0];
 
   const finalRoutes = {} as Record<string, any>;
+  
+  // First, check which APIs are from first-level folders (available in backendApi._)
+  const firstLevelApis = new Set<string>();
+  if ((await loadApi())._ ) {
+    for (const [_, item] of Object.entries((await loadApi())._)) {
+      if (Array.isArray(item)) {
+        const [url] = item as any;
+        firstLevelApis.add(url);
+      }
+    }
+  }
 
   for (const [name, site] of Object.entries(config.sites)) {
     const route = routes[name];
     if (route) {
       for (const [path, handler] of Object.entries(route)) {
         if (finalRoutes[path]) {
-          finalRoutes[path].sites[name] = { site, handler };
+          finalRoutes[path].sites[name] = { site, handler, isFirstLevel: firstLevelApis.has(path) };
           for (const [key, value] of Object.entries(handler)) {
             finalRoutes[path][key] = async (req: any) => {
               const url = new URL(req.url);
               const sites = finalRoutes[path].sites as Record<
                 string,
-                { site: SiteEntry; handler: any }
+                { site: SiteEntry; handler: any; isFirstLevel?: boolean }
               >;
 
+              // If any site has this as a first-level API, it works for all domains
+              const isFirstLevelApi = Object.values(sites).some(s => s.isFirstLevel);
+              
+              if (isFirstLevelApi) {
+                // First-level APIs work for all domains - return any handler (they're all the same)
+                const firstHandler = Object.values(sites)[0];
+                if (firstHandler && firstHandler.handler[req.method]) {
+                  return await firstHandler.handler[req.method].bind(this)(req);
+                }
+              }
+
+              // For domain-specific APIs, check domain matching
               for (const [name, s] of Object.entries(sites)) {
                 if (s.site.domains && s.site.domains.includes(url.hostname)) {
                   return await s.handler[req.method].bind(this)(req);
                 }
               }
 
+              // If no API matched, try static file serving
               for (const s of Object.values(config.sites)) {
                 if (s.domains?.includes(url.hostname)) {
                   const staticResponse = await handleDist(req);
@@ -206,7 +230,7 @@ export const initProd = async ({
         } else {
           finalRoutes[path] = {
             ...handler,
-            sites: { [name]: { site, handler } },
+            sites: { [name]: { site, handler, isFirstLevel: firstLevelApis.has(path) } },
           };
         }
       }
