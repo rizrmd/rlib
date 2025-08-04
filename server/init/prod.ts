@@ -89,7 +89,7 @@ export const initProd = async ({
   const html = rewriter.transform(await Bun.file(index.index).text());
 
   rimrafSync(dir.path("frontend:dist"));
-  await build({
+  const buildResult = await build({
     entrypoints: [entry],
     outdir: dir.path("frontend:dist"),
     plugins: [bunPluginTailwind],
@@ -107,25 +107,22 @@ export const initProd = async ({
       "process.env.NODE_ENV": JSON.stringify("production"),
     },
   });
+
+  // Find the actual entry file from the build outputs
+  let actualEntryFile = "";
+  for (const output of buildResult.outputs) {
+    if (output.kind === "entry-point" && output.path.endsWith(".js")) {
+      actualEntryFile = basename(output.path);
+      break;
+    }
+  }
+
   const newre = new HTMLRewriter().on("head", {
     element(element) {
       const files = dir.list("frontend:dist");
-
-      // Find the main entry JS file (not chunks) and CSS files
-      // Entry files have format: entryName-hash.js
-      // Chunk files have format: chunk-hash.js or other-hash.js
-      const entryJsFile = files.find(
-        (file) =>
-          file.startsWith(entryName + "-") &&
-          file.endsWith(".js") &&
-          !file.includes("chunk")
-      );
       
       const cssFiles = files.filter(
-        (file) =>
-          file.startsWith(entryName) &&
-          file.endsWith(".css") &&
-          file.includes("-")
+        (file) => file.endsWith(".css")
       );
 
       // Add CSS files first
@@ -135,9 +132,9 @@ export const initProd = async ({
         });
       });
 
-      // Add only the main entry JS file
-      if (entryJsFile) {
-        element.append(`<script type="module" src="/${entryJsFile}"></script>`, {
+      // Add the actual entry JS file
+      if (actualEntryFile) {
+        element.append(`<script type="module" src="/${actualEntryFile}"></script>`, {
           html: true,
         });
       }
