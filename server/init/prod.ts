@@ -64,87 +64,96 @@ export const initProd = async ({
     await onStart();
   }
 
-  // Production mode
-  console.log(`${c.blue}PROD${c.reset} Building frontend...`);
+  // Check if dist folder exists and has index.html
+  const distIndexPath = dir.path("frontend:dist/index.html");
+  const distExists = await Bun.file(distIndexPath).exists();
+  
+  if (distExists && !process.env.FORCE_REBUILD) {
+    console.log(`${c.green}PROD${c.reset} Using pre-built frontend from dist folder`);
+  } else {
+    // Production mode
+    console.log(`${c.blue}PROD${c.reset} Building frontend...`);
 
-  const indexDir = dirname(index.index);
-  let entry = "";
-  let entryName = "";
-  const rewriter = new HTMLRewriter().on("script", {
-    element(element) {
-      const src = element.getAttribute("src") || "";
-      if (src) {
-        entry = join(indexDir, src);
+    const indexDir = dirname(index.index);
+    let entry = "";
+    let entryName = "";
+    const rewriter = new HTMLRewriter().on("script", {
+      element(element) {
+        const src = element.getAttribute("src") || "";
+        if (src) {
+          entry = join(indexDir, src);
 
-        if (src.startsWith("./")) {
-          element.setAttribute(src, src.substring(1));
-          entryName = src.substring(2);
-          const ext = extname(entryName);
-          entryName = basename(entryName, ext);
+          if (src.startsWith("./")) {
+            element.setAttribute(src, src.substring(1));
+            entryName = src.substring(2);
+            const ext = extname(entryName);
+            entryName = basename(entryName, ext);
+          }
+          element.remove();
         }
-        element.remove();
+      },
+    });
+    const html = rewriter.transform(await Bun.file(index.index).text());
+
+    rimrafSync(dir.path("frontend:dist"));
+    const buildResult = await build({
+      entrypoints: [entry],
+      outdir: dir.path("frontend:dist"),
+      plugins: [bunPluginTailwind],
+      minify: true,
+      target: "browser",
+      sourcemap: "linked",
+      splitting: true,
+      naming: {
+        entry: "[name]-[hash].[ext]",
+        chunk: "chunk-[hash].[ext]",
+        asset: "[name]-[hash].[ext]",
+      },
+      publicPath: "/",
+      define: {
+        "process.env.NODE_ENV": JSON.stringify("production"),
+      },
+    });
+
+    // Find the actual entry file from the build outputs
+    let actualEntryFile = "";
+    for (const output of buildResult.outputs) {
+      console.log(output.kind, output.path);
+      if (output.kind === "entry-point" && output.path.endsWith(".js")) {
+        actualEntryFile = basename(output.path);
+        break;
       }
-    },
-  });
-  const html = rewriter.transform(await Bun.file(index.index).text());
-
-  rimrafSync(dir.path("frontend:dist"));
-  const buildResult = await build({
-    entrypoints: [entry],
-    outdir: dir.path("frontend:dist"),
-    plugins: [bunPluginTailwind],
-    minify: true,
-    target: "browser",
-    sourcemap: "linked",
-    splitting: true,
-    naming: {
-      entry: "[name]-[hash].[ext]",
-      chunk: "chunk-[hash].[ext]",
-      asset: "[name]-[hash].[ext]",
-    },
-    publicPath: "/",
-    define: {
-      "process.env.NODE_ENV": JSON.stringify("production"),
-    },
-  });
-
-  // Find the actual entry file from the build outputs
-  let actualEntryFile = "";
-  for (const output of buildResult.outputs) {
-    if (output.kind === "entry-point" && output.path.endsWith(".js")) {
-      actualEntryFile = basename(output.path);
-      break;
     }
+
+    const newre = new HTMLRewriter().on("head", {
+      element(element) {
+        const files = dir.list("frontend:dist");
+        
+        const cssFiles = files.filter(
+          (file) => file.endsWith(".css")
+        );
+
+        // Add CSS files first
+        cssFiles.forEach((file) => {
+          element.append(`<link rel="stylesheet" href="/${file}" />`, {
+            html: true,
+          });
+        });
+
+        // Add the actual entry JS file
+        if (actualEntryFile) {
+          element.append(`<script type="module" src="/${actualEntryFile}"></script>`, {
+            html: true,
+          });
+        }
+      },
+    });
+    await Bun.file(dir.path("frontend:dist/index.html")).write(
+      newre.transform(html)
+    );
+
+    console.log(`${c.green}PROD${c.reset} Frontend built successfully`);
   }
-
-  const newre = new HTMLRewriter().on("head", {
-    element(element) {
-      const files = dir.list("frontend:dist");
-      
-      const cssFiles = files.filter(
-        (file) => file.endsWith(".css")
-      );
-
-      // Add CSS files first
-      cssFiles.forEach((file) => {
-        element.append(`<link rel="stylesheet" href="/${file}" />`, {
-          html: true,
-        });
-      });
-
-      // Add the actual entry JS file
-      if (actualEntryFile) {
-        element.append(`<script type="module" src="/${actualEntryFile}"></script>`, {
-          html: true,
-        });
-      }
-    },
-  });
-  await Bun.file(dir.path("frontend:dist/index.html")).write(
-    newre.transform(html)
-  );
-
-  console.log(`${c.green}PROD${c.reset} Frontend built successfully`);
 
   // Setup static file handlers for both public and dist directories
   const handlePublic = staticFileHandler({
@@ -215,16 +224,25 @@ export const initProd = async ({
               }
 
               // If no API matched, try static file serving
+              const host = req.headers.get("host") || "";
               for (const s of Object.values(config.sites)) {
-                if (s.domains?.includes(url.hostname)) {
-                  const staticResponse = await handleDist(req);
-                  if (staticResponse) {
-                    return staticResponse;
+                if (s.domains?.some((domain) => host === domain || host.endsWith(`.${domain}`))) {
+                  // Try public files first
+                  const publicResponse = await handlePublic(req);
+                  if (publicResponse) {
+                    return publicResponse;
                   }
+                  
+                  // Then try dist files
+                  const distResponse = await handleDist(req);
+                  if (distResponse) {
+                    return distResponse;
+                  }
+                  break;
                 }
               }
 
-              return new Response("Domain not configured", { status: 404 });
+              return new Response("Not Found", { status: 404 });
             };
           }
         } else {
