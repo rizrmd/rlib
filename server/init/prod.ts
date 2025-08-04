@@ -99,7 +99,7 @@ export const initProd = async ({
     splitting: true,
     naming: {
       entry: "[name]-[hash].[ext]",
-      chunk: "[name]-[hash].[ext]",
+      chunk: "chunk-[hash].[ext]",
       asset: "[name]-[hash].[ext]",
     },
     publicPath: "/",
