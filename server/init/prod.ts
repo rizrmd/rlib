@@ -111,13 +111,16 @@ export const initProd = async ({
     element(element) {
       const files = dir.list("frontend:dist");
 
-      // Find all JS and CSS files that match the entry pattern (with hash)
-      const jsFiles = files.filter(
+      // Find the main entry JS file (not chunks) and CSS files
+      // Entry files have format: entryName-hash.js
+      // Chunk files have format: chunk-hash.js or other-hash.js
+      const entryJsFile = files.find(
         (file) =>
-          file.startsWith(entryName) &&
+          file.startsWith(entryName + "-") &&
           file.endsWith(".js") &&
-          file.includes("-")
+          !file.includes("chunk")
       );
+      
       const cssFiles = files.filter(
         (file) =>
           file.startsWith(entryName) &&
@@ -132,12 +135,12 @@ export const initProd = async ({
         });
       });
 
-      // Add JS files
-      jsFiles.forEach((file) => {
-        element.append(`<script type="module" src="/${file}"></script>`, {
+      // Add only the main entry JS file
+      if (entryJsFile) {
+        element.append(`<script type="module" src="/${entryJsFile}"></script>`, {
           html: true,
         });
-      });
+      }
     },
   });
   await Bun.file(dir.path("frontend:dist/index.html")).write(
