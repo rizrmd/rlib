@@ -28,6 +28,7 @@ export const initProd = async ({
   config,
   onStart,
   ws: optWs,
+  skipBuild = false,
 }: {
   index: HTMLBundle;
   loadModels: () => Promise<any>;
@@ -44,6 +45,7 @@ export const initProd = async ({
   >;
   config: SiteConfig;
   onStart?: () => Promise<void>;
+  skipBuild?: boolean;
 }) => {
   const { apiConfig, isDev, pageConfig } = initEnv(config);
   if (isDev) return null;
@@ -68,8 +70,12 @@ export const initProd = async ({
   const distIndexPath = dir.path("frontend:dist/index.html");
   const distExists = await Bun.file(distIndexPath).exists();
   
-  if (distExists && !process.env.FORCE_REBUILD) {
-    console.log(`${c.green}PROD${c.reset} Using pre-built frontend from dist folder`);
+  if (skipBuild || (distExists && !process.env.FORCE_REBUILD)) {
+    if (skipBuild) {
+      console.log(`${c.green}PROD${c.reset} Skipping frontend build (skipBuild=true)`);
+    } else {
+      console.log(`${c.green}PROD${c.reset} Using pre-built frontend from dist folder`);
+    }
   } else {
     // Production mode
     console.log(`${c.blue}PROD${c.reset} Building frontend...`);

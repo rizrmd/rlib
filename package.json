@@ -25,6 +25,7 @@
     "postgrejs": "^2.22.4",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "rimraf": "^6.0.1"
+    "rimraf": "^6.0.1",
+    "rlib": "https://github.com/rizrmd/rlib.git"
   }
 }
